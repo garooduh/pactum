@@ -372,33 +372,15 @@ function Login({
   }
   return (
     <div className={"login-screen " + (expired ? "overlay" : "")}>
-      <div className="login-story">
-        <div className="brand">
+      <div className="login-form">
+        <div className="brand login-brand">
           <span className="brand-symbol">п</span>пакт
           <span className="brand-dot">.</span>
         </div>
-        <div>
-          <span className="eyebrow">МЕНЬШЕ РУТИНЫ. БОЛЬШЕ ДЕЛА.</span>
-          <h1>
-            Договор готов.
-            <br />
-            <i>Можно работать.</i>
-          </h1>
-          <p>
-            Ваши шаблоны, ваши реквизиты.
-            <br />
-            Заполните поля — остальное мы соберём.
-          </p>
-        </div>
-        <span className="login-foot">
-          <ShieldCheck size={17} /> Личное пространство для ваших документов
-        </span>
-      </div>
-      <div className="login-form">
         <div className="doc-icon">
           <FileText size={28} />
         </div>
-        <h2>{expired ? "Вернитесь в кабинет" : "С возвращением"}</h2>
+        <h2>{expired ? "Сессия завершена" : "Вход в систему"}</h2>
         <p>
           {expired
             ? "Сессия истекла. Войдите, чтобы сохранить изменения."
@@ -418,7 +400,7 @@ function Login({
               <LoaderCircle className="spin" size={18} />
             ) : (
               <>
-                Войти в кабинет <ArrowRight size={18} />
+                Войти <ArrowRight size={18} />
               </>
             )}
           </Button>
@@ -528,8 +510,8 @@ function ProfileView({
       <div className="page-heading">
         <div>
           <span className="eyebrow">НАСТРОЙКИ</span>
-          <h1>Ваши реквизиты</h1>
-          <p>Заполните один раз. Используйте в каждом договоре.</p>
+          <h1>Реквизиты исполнителя</h1>
+          <p>Данные, которые подставляются в новые договоры.</p>
         </div>
         <Button onClick={() => void save().catch(() => {})} disabled={busy}>
           {busy ? (
@@ -551,7 +533,7 @@ function ProfileView({
           )}
           {!initial.verified && (
             <Section
-              title="Сверим данные из шаблонов"
+              title="Расхождения в исходных шаблонах"
               description="В исходниках есть расхождения. Адрес и отсутствующий корреспондентский счёт нужно заполнить самостоятельно."
             >
               <div className="source-notes">
@@ -559,11 +541,11 @@ function ProfileView({
                   <div key={n.field}>
                     <b>{n.label}</b>
                     <span>
-                      <small>Полный</small>
+                      <small>Со спецификацией</small>
                       {n.full}
                     </span>
                     <span>
-                      <small>Простой</small>
+                      <small>Без спецификации</small>
                       {n.simple}
                     </span>
                   </div>
@@ -610,7 +592,7 @@ function ProfileView({
         </div>
         <aside className="side-note">
           <ShieldCheck size={25} />
-          <h3>Всегда под рукой</h3>
+          <h3>Использование реквизитов</h3>
           <p>
             Этот профиль используется в обоих видах договоров и доступен с
             любого вашего устройства.
@@ -865,10 +847,12 @@ function Editor({
       <div className="page-heading">
         <div>
           <span className="eyebrow">
-            {data.type === "full" ? "ПОЛНЫЙ ДОГОВОР" : "ПРОСТОЙ ДОГОВОР"}
+            {data.type === "full"
+              ? "ДОГОВОР СО СПЕЦИФИКАЦИЕЙ"
+              : "ДОГОВОР ПОСТАВКИ"}
           </span>
           <h1>{data.number ? "Договор № " + data.number : "Новый договор"}</h1>
-          <p>От первых реквизитов до готового документа.</p>
+          <p>Заполните данные и сформируйте документ.</p>
         </div>
         <span className="badge draft">Черновик</span>
       </div>
@@ -892,7 +876,7 @@ function Editor({
       <ErrorBox message={error} />
       {Object.keys(errors).length > 0 && (
         <div className="validation-list">
-          <b>Что нужно заполнить</b>
+          <b>Не заполнены обязательные поля</b>
           {Object.entries(errors).map(([key, value]) => (
             <button
               key={key}
@@ -925,7 +909,7 @@ function Editor({
         <div>
           {step === 0 && (
             <Section
-              title="Основное о договоре"
+              title="Основные данные"
               description="Номер и дата появятся во всех нужных местах документа."
             >
               <div className="form-grid">
@@ -1006,8 +990,8 @@ function Editor({
               <div className="quiet-note">
                 <ShieldCheck size={18} />
                 <span>
-                  Условия договора уже в шаблоне. Вам остаётся заполнить данные
-                  сторон{data.type === "full" ? " и спецификацию" : ""}.
+                  Шаблон содержит условия договора. Заполните данные сторон
+                  {data.type === "full" ? " и спецификацию" : ""}.
                 </span>
               </div>
             </Section>
@@ -1195,7 +1179,7 @@ function Editor({
           {step === steps.length - 1 && (
             <>
               <Section
-                title="Всё готово к проверке"
+                title="Проверка данных"
                 description="Проверьте данные и сформируйте документы."
               >
                 <dl className="review-list">
@@ -1256,7 +1240,7 @@ function Editor({
               {issues.length > 0 && (
                 <Section
                   title="Сформированные версии"
-                  description="Скачивание сохранённых файлов — без повторного заполнения."
+                  description="Ранее сформированные файлы этого договора."
                 >
                   <div className="versions">
                     {issues.map((issue, index) => (
@@ -1547,7 +1531,7 @@ function App() {
             <span className="brand-symbol">п</span>пакт
             <span className="brand-dot">.</span>
           </button>
-          <span className="workspace-label">ЛИЧНЫЙ КАБИНЕТ</span>
+          <span className="workspace-label">ДОГОВОРЫ</span>
           <nav>
             <button
               className={view === "home" ? "active" : ""}
@@ -1570,26 +1554,17 @@ function App() {
               onClick={() => navigate("profile")}
             >
               <Settings2 size={19} />
-              Мои реквизиты
+              Реквизиты исполнителя
               {profile && !profile.verified && (
                 <span className="attention-dot" />
               )}
             </button>
           </nav>
-          <div className="sidebar-note">
-            <FileText size={23} />
-            <h3>
-              Меньше бумаги.
-              <br />
-              Больше порядка.
-            </h3>
-            <p>Всё для работы с договорами — в одном месте.</p>
-          </div>
           <div className="account">
             <span className="avatar">ТБ</span>
             <div>
               <b>{profile?.party.short_name || "Личный кабинет"}</b>
-              <small>Личное пространство</small>
+              <small>Рабочая область</small>
             </div>
             <button
               className="icon-button"
@@ -1618,7 +1593,7 @@ function App() {
                   {
                     home: "Обзор",
                     history: "Мои договоры",
-                    profile: "Мои реквизиты",
+                    profile: "Реквизиты исполнителя",
                     editor: "Новый договор",
                   }[view]
                 }
@@ -1626,7 +1601,7 @@ function App() {
             </span>
             <span className="private">
               <span />
-              Только для вас
+              Авторизованный доступ
             </span>
           </header>
           <div className="page">
@@ -1647,18 +1622,18 @@ function App() {
                       <div>
                         <span className="eyebrow">
                           {view === "home"
-                            ? "ПОРЯДОК В ДОКУМЕНТАХ"
-                            : "ВАШ АРХИВ"}
+                            ? "РАБОЧЕЕ ПРОСТРАНСТВО"
+                            : "РЕЕСТР ДОГОВОРОВ"}
                         </span>
                         <h1>
                           {view === "home"
-                            ? "Договоры без лишних шагов"
+                            ? "Создание договоров"
                             : "Мои договоры"}
                         </h1>
                         <p>
                           {view === "home"
-                            ? "Выберите шаблон, заполните данные и скачайте готовый договор."
-                            : "Черновики и готовые документы. Всё на своём месте."}
+                            ? "Выберите тип документа."
+                            : "Черновики и сформированные документы."}
                         </p>
                       </div>
                       <span className="today">
@@ -1674,7 +1649,7 @@ function App() {
                           <Settings2 size={20} />
                         </div>
                         <div>
-                          <b>Начнём с ваших реквизитов</b>
+                          <b>Заполните реквизиты исполнителя</b>
                           <p>
                             Проверьте данные исполнителя — они будут
                             подставляться автоматически.
@@ -1699,15 +1674,15 @@ function App() {
                           <span className="template-icon">
                             <FileText size={25} />
                           </span>
-                          <span className="template-tag">ПОСТАВКА</span>
+                          <span className="template-tag">БЕЗ СПЕЦИФИКАЦИИ</span>
                         </div>
-                        <h2>Простой договор</h2>
+                        <h2>Договор поставки</h2>
                         <p>
-                          Для поставки товаров. <br />
-                          Основные условия и реквизиты сторон.
+                          Основные условия поставки <br />
+                          и реквизиты сторон.
                         </p>
                         <div className="template-bottom">
-                          <span>Без спецификации</span>
+                          <span>Создать договор</span>
                           <span className="round-arrow">
                             <ArrowUpRightIcon />
                           </span>
@@ -1722,15 +1697,15 @@ function App() {
                           <span className="template-icon">
                             <Copy size={24} />
                           </span>
-                          <span className="template-tag">ИЗГОТОВЛЕНИЕ</span>
+                          <span className="template-tag">СО СПЕЦИФИКАЦИЕЙ</span>
                         </div>
-                        <h2>Полный договор</h2>
+                        <h2>Договор на изготовление</h2>
                         <p>
-                          Для изготовления изделий и работ. <br />
-                          Подробные условия и спецификация.
+                          Условия изготовления, перечень <br />
+                          позиций и расчёт стоимости.
                         </p>
                         <div className="template-bottom">
-                          <span>С расчётом стоимости</span>
+                          <span>Создать договор</span>
                           <span className="round-arrow">
                             <ArrowUpRightIcon />
                           </span>
@@ -1747,7 +1722,7 @@ function App() {
                         <span>
                           {contracts.length
                             ? `${contracts.length}${more ? "+" : ""} в списке`
-                            : "История ваших документов"}
+                            : "Договоров пока нет"}
                         </span>
                       </div>
                       <label className="search">
@@ -1812,7 +1787,9 @@ function App() {
                                     </b>
                                     <small>
                                       {c.customer || "Заказчик не заполнен"} ·{" "}
-                                      {c.type === "full" ? "Полный" : "Простой"}
+                                      {c.type === "full"
+                                        ? "Со спецификацией"
+                                        : "Поставка"}
                                     </small>
                                   </span>
                                 </button>
@@ -1867,10 +1844,6 @@ function App() {
                         </Button>
                       )}
                     </div>
-                    <div className="bottom-note">
-                      <ShieldCheck size={15} /> Документы доступны только после
-                      входа в ваш кабинет.
-                    </div>
                   </>
                 )}
                 {view === "profile" && (
@@ -1895,10 +1868,6 @@ function App() {
               </>
             )}
           </div>
-          <footer>
-            <span>пакт.</span>
-            <span>Время — делу. Документы — по шаблону.</span>
-          </footer>
         </main>
       </div>
     </>
