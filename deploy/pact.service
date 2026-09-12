@@ -1,0 +1,22 @@
+[Unit]
+Description=Pact contract generator
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+User=pact
+Group=pact
+WorkingDirectory=/opt/pact/backend
+EnvironmentFile=/etc/pact.env
+ExecStart=/opt/pact/.venv/bin/uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000 --workers 1 --no-access-log
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/pact
+
+[Install]
+WantedBy=multi-user.target

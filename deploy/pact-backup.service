@@ -1,0 +1,5 @@
+[Unit]
+Description=Back up Pact database and documents
+[Service]
+Type=oneshot
+ExecStart=/opt/pact/scripts/backup-native.sh

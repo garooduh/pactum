@@ -1,0 +1,12 @@
+{
+  "full": {
+    "version": "full-v2-5aa0e6da9fc7",
+    "file": "full-v2.docx",
+    "source_sha256": "e0ecfb650cf862ace555e2d37c321900397cdf7abc1f6ff12f1f77a0da06c7bc"
+  },
+  "simple": {
+    "version": "simple-v2-b5f34f65d31c",
+    "file": "simple-v2.docx",
+    "source_sha256": "1f4981a974ee7ef85d61f8be01af90c9a62c4c7f7e3e752fa38bfed7f76825ed"
+  }
+}
