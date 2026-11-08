@@ -12,7 +12,6 @@ import {
   ExternalLink,
   FileText,
   FolderOpen,
-  LayoutGrid,
   LoaderCircle,
   LogOut,
   Plus,
@@ -1560,13 +1559,6 @@ function App() {
             >
               <FolderOpen size={19} />
               Списки мебели
-            </button>
-            <button
-              className={view === "home" ? "active" : ""}
-              onClick={() => navigate("home")}
-            >
-              <LayoutGrid size={19} />
-              Обзор
             </button>
             <button
               className={
