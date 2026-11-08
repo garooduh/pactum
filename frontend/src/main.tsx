@@ -375,7 +375,10 @@ function Login({
     <div className={"login-screen " + (expired ? "overlay" : "")}>
       <div className="login-form">
         <div className="brand login-brand">
-          <span className="brand-symbol">п</span>пакт
+          <span className="brand-symbol" aria-hidden="true">
+            P
+          </span>
+          Pactum
           <span className="brand-dot">.</span>
         </div>
         <div className="doc-icon">
@@ -1548,7 +1551,10 @@ function App() {
         )}
         <aside className={"sidebar " + (mobile ? "open" : "")}>
           <button className="brand" onClick={() => navigate("home")}>
-            <span className="brand-symbol">п</span>пакт
+            <span className="brand-symbol" aria-hidden="true">
+              P
+            </span>
+            Pactum
             <span className="brand-dot">.</span>
           </button>
           <span className="workspace-label">ДОГОВОРЫ</span>

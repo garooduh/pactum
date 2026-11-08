@@ -52,7 +52,7 @@ def create_app(database_url=None, data_dir=None, secure_cookie=None):
         yield
         engine.dispose()
 
-    app=FastAPI(title='Пакт — договоры',lifespan=lifespan,docs_url=None,redoc_url=None,openapi_url=None)
+    app=FastAPI(title='Pactum',lifespan=lifespan,docs_url=None,redoc_url=None,openapi_url=None)
     app.state.Session=Session
     app.state.storage=storage
 
