@@ -36,6 +36,72 @@ def setcell(cell, value):
 def normal(el):
     for b in el.xpath('.//w:rPr/w:b | .//w:rPr/w:bCs', namespaces=NS): b.set(q('val'),'0')
 
+def table_cell(value, width, *, bold=False, align='center', span=None):
+    cell = E.Element(q('tc'))
+    properties = E.SubElement(cell, q('tcPr'))
+    cell_width = E.SubElement(properties, q('tcW'))
+    cell_width.set(q('w'), str(width)); cell_width.set(q('type'), 'dxa')
+    if span:
+        grid_span = E.SubElement(properties, q('gridSpan'))
+        grid_span.set(q('val'), str(span))
+    vertical = E.SubElement(properties, q('vAlign'))
+    vertical.set(q('val'), 'center')
+    margins = E.SubElement(properties, q('tcMar'))
+    for side in ['top', 'start', 'bottom', 'end']:
+        margin = E.SubElement(margins, q(side))
+        margin.set(q('w'), '60'); margin.set(q('type'), 'dxa')
+    paragraph = E.SubElement(cell, q('p'))
+    paragraph_properties = E.SubElement(paragraph, q('pPr'))
+    justification = E.SubElement(paragraph_properties, q('jc'))
+    justification.set(q('val'), align)
+    run = E.SubElement(paragraph, q('r'))
+    run_properties = E.SubElement(run, q('rPr'))
+    if bold:
+        E.SubElement(run_properties, q('b'))
+        E.SubElement(run_properties, q('bCs'))
+    for tag in ['sz', 'szCs']:
+        size = E.SubElement(run_properties, q(tag)); size.set(q('val'), '18')
+    node = E.SubElement(run, q('t'))
+    node.set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')
+    node.text = value
+    return cell
+
+def simple_items_table():
+    widths = [500, 3600, 800, 1000, 1500, 1900]
+    table = E.Element(q('tbl'))
+    properties = E.SubElement(table, q('tblPr'))
+    table_width = E.SubElement(properties, q('tblW'))
+    table_width.set(q('w'), str(sum(widths))); table_width.set(q('type'), 'dxa')
+    justification = E.SubElement(properties, q('jc'))
+    justification.set(q('val'), 'center')
+    layout = E.SubElement(properties, q('tblLayout'))
+    layout.set(q('type'), 'fixed')
+    borders = E.SubElement(properties, q('tblBorders'))
+    for side in ['top', 'left', 'bottom', 'right', 'insideH', 'insideV']:
+        border = E.SubElement(borders, q(side))
+        border.set(q('val'), 'single'); border.set(q('sz'), '4')
+        border.set(q('space'), '0'); border.set(q('color'), 'auto')
+    grid = E.SubElement(table, q('tblGrid'))
+    for width in widths:
+        column = E.SubElement(grid, q('gridCol')); column.set(q('w'), str(width))
+    rows = [
+        (['№', 'Наименование товара', 'Ед.', 'Кол-во', 'Цена, руб.', 'Сумма, руб.'], True),
+        (['{{item_index}}', '{{item_name}}', '{{item_unit}}', '{{item_quantity}}', '{{item_price}}', '{{item_amount}}'], False),
+    ]
+    for values, header in rows:
+        row = E.SubElement(table, q('tr'))
+        row_properties = E.SubElement(row, q('trPr'))
+        E.SubElement(row_properties, q('cantSplit'))
+        if header: E.SubElement(row_properties, q('tblHeader'))
+        for index, (value, width) in enumerate(zip(values, widths)):
+            row.append(table_cell(value, width, bold=header, align='left' if index == 1 and not header else 'center'))
+    total = E.SubElement(table, q('tr'))
+    total_properties = E.SubElement(total, q('trPr'))
+    E.SubElement(total_properties, q('cantSplit'))
+    total.append(table_cell('Итого', sum(widths[:-1]), bold=True, align='right', span=5))
+    total.append(table_cell('{{total}} руб.', widths[-1], bold=True))
+    return table
+
 def replace_package(source, target, root):
     with ZipFile(source) as old, ZipFile(target,'w',ZIP_DEFLATED) as new:
         for entry in old.infolist():
@@ -127,6 +193,13 @@ for kind in ['full', 'simple']:
     else:
         setp(ps[4], '{{supplier_intro}}, с одной стороны,\nи {{customer_intro}}, с другой стороны, заключили настоящий Договор о нижеследующем:')
         normal(ps[4])
+        items_heading = deepcopy(ps[6])
+        setp(items_heading, 'Перечень поставляемых товаров:')
+        heading_properties = items_heading.find(q('pPr'))
+        if heading_properties is None: heading_properties = E.SubElement(items_heading, q('pPr'))
+        E.SubElement(heading_properties, q('keepNext'))
+        ps[6].addnext(items_heading)
+        items_heading.addnext(simple_items_table())
         keys=['short_name','address','tax','account','correspondent','bank','bik']
         rows=tables[0].findall(q('tr'))
         for row,key in zip(rows[1:],keys):

@@ -1,11 +1,11 @@
-# Рабочее размещение — 07.09.2026
+# Рабочее размещение — 07.09.2026; домен обновлён 30.09.2026
 
-URL: https://pact-gen.bobserver.ru
+URL: https://pactum.qbob.ru (`pactum.bobserver.ru` и `pact-gen.bobserver.ru` перенаправляют на новый адрес)
 
 - Приложение: Debian 12 LXC, 192.168.1.206, `/opt/pact`, systemd `pact.service`.
 - Python 3.11, PostgreSQL 15, UTF8, LibreOffice 7.4.7. Один worker, последовательная PDF-конвертация; frontend собран локально.
 - Внутренний Nginx: порт 8080. API: только 127.0.0.1:8000. PostgreSQL: локальный интерфейс.
-- Внешний Nginx: 192.168.1.11, `/etc/nginx/sites-available/pact-gen.bobserver.ru`.
+- Внешний Nginx: 192.168.1.11, `/etc/nginx/sites-available/pactum.qbob.ru`.
 - HTTPS Let's Encrypt, автоматическое продление `certbot.timer`, HTTP перенаправляется на HTTPS.
 - Секреты: `/etc/pact.env` (600). Первичные данные входа: `/root/pact-login.txt` (600).
 - Документы: `/var/lib/pact/documents`. База `pact`, роль `pact`.

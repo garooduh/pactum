@@ -16,6 +16,7 @@ exec 9>/run/lock/pact-deploy.lock
 flock -n 9 || { echo 'Another deployment or backup is running.' >&2; exit 1; }
 [[ -d "$base/backend" && -f /etc/pact.env ]] || { echo 'Existing Pact installation is required.' >&2; exit 1; }
 systemctl is-active --quiet pact || { echo 'Pact is not healthy before deployment; aborting.' >&2; exit 1; }
+nginx -t
 (cd "$incoming" && printf '%s  release.tar.gz\n' "$expected_hash" | sha256sum -c -)
 mkdir "$release" "$rollback"
 tar -xzf "$incoming/release.tar.gz" --no-same-owner -C "$release"
@@ -65,7 +66,7 @@ finish() {
 }
 health() {
   for ((attempt=0; attempt<30; attempt++)); do
-    if systemctl is-active --quiet pact && "$base/.venv/bin/python" - <<'PY'
+    if systemctl is-active --quiet pact && systemctl is-active --quiet nginx && "$base/.venv/bin/python" - <<'PY'
 import json, re, urllib.request
 base='http://127.0.0.1:8080'
 assert json.load(urllib.request.urlopen(base+'/api/health',timeout=3))['status']=='ok'
@@ -74,6 +75,13 @@ assets=re.findall(r'(?:src|href)="(/assets/[^" ]+)"',page)
 assert assets, 'Missing frontend assets'
 for asset in assets:
     assert urllib.request.urlopen(base+asset,timeout=3).status==200
+public='https://pactum.qbob.ru'
+assert json.load(urllib.request.urlopen(public+'/api/health',timeout=10))['status']=='ok'
+page=urllib.request.urlopen(public+'/',timeout=10).read().decode()
+assets=re.findall(r'(?:src|href)="(/assets/[^" ]+)"',page)
+assert assets, 'Missing public frontend assets'
+for asset in assets:
+    assert urllib.request.urlopen(public+asset,timeout=10).status==200
 PY
     then return 0; fi
     sleep 2
@@ -105,6 +113,7 @@ for name in "${paths[@]}"; do
 done
 systemctl start pact
 health
+journalctl -u pact -n 15 --no-pager
 committed=1
 printf 'Release active: %s\nBackup: %s\nPrevious paths: %s\n' "$release" "$backup" "$rollback"
 # Keep old releases and backups for rollback; retention is an explicit admin action.

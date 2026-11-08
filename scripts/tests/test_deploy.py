@@ -50,6 +50,8 @@ exit 0
 printf 'database dump'
 ''')
             executable(bin_dir / 'sleep', '#!/bin/bash\nexit 0\n')
+            executable(bin_dir / 'nginx', '#!/bin/bash\nexit 0\n')
+            executable(bin_dir / 'journalctl', '#!/bin/bash\nexit 0\n')
             # Delegate Python invocations to the current interpreter; emulate venv only.
             python_real = shutil.which('python3')
             executable(bin_dir / 'python3', f'''#!{python_real}

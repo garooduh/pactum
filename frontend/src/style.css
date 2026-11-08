@@ -162,6 +162,25 @@ button {
 .sidebar nav button.active svg {
   color: #dce8b7;
 }
+.buildin-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 13px 12px;
+  border: 1px solid #ffffff26;
+  border-radius: 4px;
+  color: #eef3e8;
+  font-size: 13px;
+  text-decoration: none;
+}
+.buildin-link:hover {
+  background: #ffffff0d;
+}
+.buildin-link:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
 .attention-dot {
   width: 6px;
   height: 6px;
