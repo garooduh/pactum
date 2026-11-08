@@ -4,8 +4,9 @@ set -Eeuo pipefail
 
 usage() {
   cat <<'HELP'
-Usage: scripts/deploy.sh [--check] [--templates-reviewed]
+Usage: scripts/deploy.sh [--check] [--output DIRECTORY] [--templates-reviewed]
   --check               Test/build/package locally; do not connect to the server.
+  --output DIRECTORY    Save the checked package and remote installer (requires --check).
   --templates-reviewed  Confirm that changed DOCX templates were rendered and reviewed.
 Environment:
   DEPLOY_HOST       SSH destination (default root@192.168.1.206); SSH aliases supported
@@ -18,14 +19,19 @@ HELP
 }
 check_only=0
 reviewed=0
-for option in "$@"; do
+output_dir=
+while (( $# )); do
+  option=$1
   case "$option" in
     --check) check_only=1 ;;
     --templates-reviewed) reviewed=1 ;;
+    --output) [[ $# -ge 2 ]] || { usage >&2; exit 2; }; output_dir=$2; shift ;;
     -h|--help) usage; exit 0 ;;
     *) printf 'Unknown option: %s\n' "$option" >&2; usage >&2; exit 2 ;;
   esac
+  shift
 done
+[[ -z "$output_dir" || "$check_only" == 1 ]] || { echo '--output requires --check.' >&2; exit 2; }
 root_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 python_bin="${PYTHON:-python3}"
 npm_bin="${NPM:-npm}"
@@ -69,11 +75,27 @@ cp -a "$stage/frontend/dist" "$work_dir/payload/frontend/"
 mkdir "$work_dir/payload/templates"
 (cd "$stage/templates" && tar --exclude=source -cf - .) | tar -xf - -C "$work_dir/payload/templates"
 cp -a "$stage/scripts" "$work_dir/payload/"
+if [[ -n "${GITHUB_SHA:-}" ]]; then
+  "$python_bin" - "$work_dir/payload/build.json" <<'PY'
+import json, os, sys
+from pathlib import Path
+Path(sys.argv[1]).write_text(json.dumps({
+    'commit': os.environ['GITHUB_SHA'],
+    'run_id': int(os.environ['GITHUB_RUN_ID']),
+    'run_attempt': int(os.environ['GITHUB_RUN_ATTEMPT']),
+}) + '\n')
+PY
+fi
 cp "$stage/scripts/deploy-remote.sh" "$work_dir/remote.sh"
 tar -czf "$work_dir/release.tar.gz" -C "$work_dir/payload" .
 archive_hash="$(sha256sum "$work_dir/release.tar.gz" | cut -d' ' -f1)"
 runner_hash="$(sha256sum "$work_dir/remote.sh" | cut -d' ' -f1)"
 printf 'Checks passed. Package SHA256: %s\n' "$archive_hash"
+if [[ -n "$output_dir" ]]; then
+  mkdir -p -- "$output_dir"
+  cp "$work_dir/release.tar.gz" "$work_dir/remote.sh" "$output_dir/"
+  (cd "$output_dir" && sha256sum release.tar.gz remote.sh > SHA256SUMS)
+fi
 if (( check_only )); then
   printf 'Check complete; server was not contacted.\n'
   exit 0

@@ -161,23 +161,23 @@ def validate_generation(data: ContractData, profile: Profile):
         date.fromisoformat(data.date)
     except ValueError:
         errors['date'] = 'Укажите корректную дату'
+    spec = data.specification
     if data.type == 'full':
         for key in ['title']:
             if not getattr(data, key):
                 errors[key] = 'Заполните поле'
-        spec = data.specification
         for key in ['number', 'description', 'deadline', 'delivery', 'installation']:
             if not getattr(spec, key):
                 errors[f'specification.{key}'] = 'Заполните поле'
-        if not spec.items:
-            errors['specification.items'] = 'Добавьте хотя бы одну позицию'
-        for index, item in enumerate(spec.items):
-            for key in ['name', 'unit']:
-                if not getattr(item, key):
-                    errors[f'specification.items.{index}.{key}'] = 'Заполните поле'
-            for key in ['quantity', 'price']:
-                try:
-                    numeric(getattr(item, key), quantity=key == 'quantity')
-                except ValueError as error:
-                    errors[f'specification.items.{index}.{key}'] = str(error)
+    if not spec.items:
+        errors['specification.items'] = 'Добавьте хотя бы одну позицию'
+    for index, item in enumerate(spec.items):
+        for key in ['name', 'unit']:
+            if not getattr(item, key):
+                errors[f'specification.items.{index}.{key}'] = 'Заполните поле'
+        for key in ['quantity', 'price']:
+            try:
+                numeric(getattr(item, key), quantity=key == 'quantity')
+            except ValueError as error:
+                errors[f'specification.items.{index}.{key}'] = str(error)
     return errors

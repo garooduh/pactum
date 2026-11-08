@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Copy,
+  ExternalLink,
   FileText,
   FolderOpen,
   LayoutGrid,
@@ -707,7 +708,7 @@ function Editor({
   const steps =
     data.type === "full"
       ? ["Договор", "Заказчик", "Спецификация", "Проверка"]
-      : ["Договор", "Заказчик", "Проверка"];
+      : ["Договор", "Покупатель", "Товары", "Проверка"];
   const field = (
     key: "number" | "date" | "city" | "title",
     label: string,
@@ -991,14 +992,16 @@ function Editor({
                 <ShieldCheck size={18} />
                 <span>
                   Шаблон содержит условия договора. Заполните данные сторон
-                  {data.type === "full" ? " и спецификацию" : ""}.
+                  {data.type === "full" ? " и спецификацию" : " и товары"}.
                 </span>
               </div>
             </Section>
           )}
           {step === 1 && (
             <Section
-              title="Данные заказчика"
+              title={
+                data.type === "full" ? "Данные заказчика" : "Данные покупателя"
+              }
               description="Эти реквизиты будут в начале договора, в таблице и подписях."
             >
               <PartyFields
@@ -1008,21 +1011,27 @@ function Editor({
               />
             </Section>
           )}
-          {step === 2 && data.type === "full" && (
+          {step === 2 && (
             <>
               <Section
-                title="Спецификация"
-                description="Добавьте изделия или работы. Суммы рассчитаются автоматически."
+                title={data.type === "full" ? "Спецификация" : "Товары"}
+                description={
+                  data.type === "full"
+                    ? "Добавьте изделия или работы. Суммы рассчитаются автоматически."
+                    : "Добавьте поставляемые товары. Перечень и суммы войдут в договор."
+                }
               >
-                <div className="form-grid">
-                  <Field
-                    label="Номер спецификации"
-                    value={spec.number}
-                    onChange={(v) => updateSpec("number", v)}
-                    error={errors["specification.number"]}
-                    required
-                  />
-                </div>
+                {data.type === "full" && (
+                  <div className="form-grid">
+                    <Field
+                      label="Номер спецификации"
+                      value={spec.number}
+                      onChange={(v) => updateSpec("number", v)}
+                      error={errors["specification.number"]}
+                      required
+                    />
+                  </div>
+                )}
                 <div className="items">
                   {spec.items.map((item, index) => (
                     <div className="item-card" key={index}>
@@ -1050,7 +1059,10 @@ function Editor({
                               key={key}
                               label={
                                 {
-                                  name: "Изделие или работа",
+                                  name:
+                                    data.type === "full"
+                                      ? "Изделие или работа"
+                                      : "Наименование товара",
                                   unit: "Единица измерения",
                                   quantity: "Количество",
                                   price: "Цена за единицу, ₽",
@@ -1079,34 +1091,36 @@ function Editor({
                           ),
                         )}
                       </div>
-                      <details>
-                        <summary>Материал, размеры и допуски</summary>
-                        <div className="form-grid">
-                          {(
-                            ["material", "dimensions", "tolerance"] as const
-                          ).map((key) => (
-                            <Field
-                              key={key}
-                              label={
-                                {
-                                  material: "Материал",
-                                  dimensions: "Размеры, мм",
-                                  tolerance: "Предельные отклонения",
-                                }[key]
-                              }
-                              value={item[key]}
-                              onChange={(v) =>
-                                updateSpec(
-                                  "items",
-                                  spec.items.map((x, i) =>
-                                    i === index ? { ...x, [key]: v } : x,
-                                  ),
-                                )
-                              }
-                            />
-                          ))}
-                        </div>
-                      </details>
+                      {data.type === "full" && (
+                        <details>
+                          <summary>Материал, размеры и допуски</summary>
+                          <div className="form-grid">
+                            {(
+                              ["material", "dimensions", "tolerance"] as const
+                            ).map((key) => (
+                              <Field
+                                key={key}
+                                label={
+                                  {
+                                    material: "Материал",
+                                    dimensions: "Размеры, мм",
+                                    tolerance: "Предельные отклонения",
+                                  }[key]
+                                }
+                                value={item[key]}
+                                onChange={(v) =>
+                                  updateSpec(
+                                    "items",
+                                    spec.items.map((x, i) =>
+                                      i === index ? { ...x, [key]: v } : x,
+                                    ),
+                                  )
+                                }
+                              />
+                            ))}
+                          </div>
+                        </details>
+                      )}
                       <div className="item-total">
                         Сумма позиции{" "}
                         <b>
@@ -1126,54 +1140,58 @@ function Editor({
                   <Plus size={17} /> Добавить позицию
                 </Button>
                 <div className="grand-total">
-                  <span>Итого по спецификации</span>
+                  <span>
+                    {data.type === "full" ? "Итого по спецификации" : "Итого"}
+                  </span>
                   <b>{formatMoney(totalAmount(spec.items))}</b>
                 </div>
               </Section>
-              <Section
-                title="Описание и условия"
-                description="Текст попадёт в соответствующие разделы спецификации."
-              >
-                <div className="form-grid">
-                  {(
-                    [
-                      "description",
-                      "notes",
-                      "coating",
-                      "color",
-                      "deadline",
-                      "delivery",
-                      "installation",
-                    ] as const
-                  ).map((key) => (
-                    <Field
-                      key={key}
-                      label={
-                        {
-                          description: "Краткое описание изделия",
-                          notes: "Примечания",
-                          coating: "Покрытие",
-                          color: "Цвет",
-                          deadline: "Сроки изготовления",
-                          delivery: "Доставка",
-                          installation: "Монтаж",
-                        }[key]
-                      }
-                      value={spec[key]}
-                      onChange={(v) => updateSpec(key, v)}
-                      required={[
+              {data.type === "full" && (
+                <Section
+                  title="Описание и условия"
+                  description="Текст попадёт в соответствующие разделы спецификации."
+                >
+                  <div className="form-grid">
+                    {(
+                      [
                         "description",
+                        "notes",
+                        "coating",
+                        "color",
                         "deadline",
                         "delivery",
                         "installation",
-                      ].includes(key)}
-                      error={errors["specification." + key]}
-                      wide={!["coating", "color"].includes(key)}
-                      multiline={!["coating", "color"].includes(key)}
-                    />
-                  ))}
-                </div>
-              </Section>
+                      ] as const
+                    ).map((key) => (
+                      <Field
+                        key={key}
+                        label={
+                          {
+                            description: "Краткое описание изделия",
+                            notes: "Примечания",
+                            coating: "Покрытие",
+                            color: "Цвет",
+                            deadline: "Сроки изготовления",
+                            delivery: "Доставка",
+                            installation: "Монтаж",
+                          }[key]
+                        }
+                        value={spec[key]}
+                        onChange={(v) => updateSpec(key, v)}
+                        required={[
+                          "description",
+                          "deadline",
+                          "delivery",
+                          "installation",
+                        ].includes(key)}
+                        error={errors["specification." + key]}
+                        wide={!["coating", "color"].includes(key)}
+                        multiline={!["coating", "color"].includes(key)}
+                      />
+                    ))}
+                  </div>
+                </Section>
+              )}
             </>
           )}
           {step === steps.length - 1 && (
@@ -1190,28 +1208,28 @@ function Editor({
                     </dd>
                   </div>
                   <div>
-                    <dt>Заказчик</dt>
+                    <dt>{data.type === "full" ? "Заказчик" : "Покупатель"}</dt>
                     <dd>{data.customer.full_name || "Не заполнен"}</dd>
                   </div>
                   <div>
-                    <dt>Исполнитель</dt>
+                    <dt>
+                      {data.type === "full" ? "Исполнитель" : "Поставщик"}
+                    </dt>
                     <dd>{profile.party.short_name}</dd>
                   </div>
                   {data.type === "full" && (
-                    <>
-                      <div>
-                        <dt>Работы</dt>
-                        <dd>{data.title || "Не заполнены"}</dd>
-                      </div>
-                      <div>
-                        <dt>Спецификация</dt>
-                        <dd>
-                          {spec.items.length} поз. ·{" "}
-                          {formatMoney(totalAmount(spec.items))}
-                        </dd>
-                      </div>
-                    </>
+                    <div>
+                      <dt>Работы</dt>
+                      <dd>{data.title || "Не заполнены"}</dd>
+                    </div>
                   )}
+                  <div>
+                    <dt>{data.type === "full" ? "Спецификация" : "Товары"}</dt>
+                    <dd>
+                      {spec.items.length} поз. ·{" "}
+                      {formatMoney(totalAmount(spec.items))}
+                    </dd>
+                  </div>
                 </dl>
                 <div className="quiet-note">
                   <FileText size={19} />
@@ -1335,13 +1353,15 @@ function Editor({
               <div className="paper-line" />
               <div className="paper-line long" />
               <div className="paper-signatures">
-                <span>Заказчик</span>
-                <span>Исполнитель</span>
+                <span>{data.type === "full" ? "Заказчик" : "Поставщик"}</span>
+                <span>
+                  {data.type === "full" ? "Исполнитель" : "Покупатель"}
+                </span>
               </div>
             </div>
             <span>
               Схема документа ·{" "}
-              {data.type === "full" ? "со спецификацией" : "без спецификации"}
+              {data.type === "full" ? "со спецификацией" : "с перечнем товаров"}
             </span>
           </div>
           <div
@@ -1583,6 +1603,15 @@ function App() {
               <LogOut size={17} />
             </button>
           </div>
+          <a
+            className="buildin-link"
+            href="https://buildin.ai"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <ExternalLink size={18} />
+            Buildin
+          </a>
         </aside>
         <main>
           <header className="topbar">
@@ -1674,12 +1703,14 @@ function App() {
                           <span className="template-icon">
                             <FileText size={25} />
                           </span>
-                          <span className="template-tag">БЕЗ СПЕЦИФИКАЦИИ</span>
+                          <span className="template-tag">
+                            С ПЕРЕЧНЕМ ТОВАРОВ
+                          </span>
                         </div>
                         <h2>Договор поставки</h2>
                         <p>
-                          Основные условия поставки <br />
-                          и реквизиты сторон.
+                          Позиции товаров, расчёт стоимости <br />и условия
+                          поставки.
                         </p>
                         <div className="template-bottom">
                           <span>Создать договор</span>

@@ -76,11 +76,12 @@ def generate_docx(data: ContractData, profile: Profile, destination: Path):
     mapping['payment_terms']=payment
     for prefix,party,role in [('customer',data.customer,'Заказчик' if data.type=='full' else 'Покупатель'),('supplier',profile.party,'Исполнитель' if data.type=='full' else 'Поставщик')]:
         mapping.update({prefix+'_'+k:v for k,v in party_values(party,role).items()})
+    spec=data.specification
+    lines,total=totals(spec)
+    mapping['total']=money(total)
     if data.type=='full':
-        spec=data.specification
-        lines,total=totals(spec)
         mapping.update({k:v for k,v in spec.model_dump().items() if k not in ['items', 'number']})
-        mapping.update({'spec_number':spec.number,'total':money(total)})
+        mapping['spec_number']=spec.number
     destination.parent.mkdir(parents=True,exist_ok=True)
     temporary=destination.with_suffix('.tmp')
     with ZipFile(TEMPLATES/info['file']) as source, ZipFile(temporary,'w',ZIP_DEFLATED) as output:
@@ -88,18 +89,15 @@ def generate_docx(data: ContractData, profile: Profile, destination: Path):
             raw=source.read(entry.filename)
             if entry.filename=='word/document.xml':
                 root=E.fromstring(raw)
-                if data.type=='full':
-                    row=root.xpath('.//w:tr[.//w:t[contains(text(), "{{item_name}}")]]',namespaces=NS)[0]
-                    anchor=E.Comment('positions'); row.addprevious(anchor); row.getparent().remove(row)
-                    replace_tokens(root,mapping)
-                    for index,(item,amount) in enumerate(zip(spec.items,lines),1):
-                        clone=deepcopy(row)
-                        item_map={'item_'+key:value for key,value in item.model_dump().items()}
-                        item_map.update({'item_index':str(index),'item_price':money(numeric(item.price)),'item_quantity':str(numeric(item.quantity,quantity=True)).replace('.',','),'item_amount':money(amount)})
-                        replace_tokens(clone,item_map); anchor.addprevious(clone)
-                    anchor.getparent().remove(anchor)
-                else:
-                    replace_tokens(root,mapping)
+                row=root.xpath('.//w:tr[.//w:t[contains(text(), "{{item_name}}")]]',namespaces=NS)[0]
+                anchor=E.Comment('positions'); row.addprevious(anchor); row.getparent().remove(row)
+                replace_tokens(root,mapping)
+                for index,(item,amount) in enumerate(zip(spec.items,lines),1):
+                    clone=deepcopy(row)
+                    item_map={'item_'+key:value for key,value in item.model_dump().items()}
+                    item_map.update({'item_index':str(index),'item_price':money(numeric(item.price)),'item_quantity':str(numeric(item.quantity,quantity=True)).replace('.',','),'item_amount':money(amount)})
+                    replace_tokens(clone,item_map); anchor.addprevious(clone)
+                anchor.getparent().remove(anchor)
                 raw=E.tostring(root,xml_declaration=True,encoding='UTF-8',standalone=True)
             output.writestr(entry,raw)
     temporary.replace(destination)

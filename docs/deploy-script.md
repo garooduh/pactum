@@ -62,3 +62,58 @@ python3 scripts/tests/test_deploy.py
 ```
 
 Три теста выполняются в временном каталоге с имитацией systemd/PostgreSQL: успешное переключение, сбой backup, неуспешная проверка новой версии с откатом. Рабочий сервер ими не затрагивается.
+
+## GitHub Actions
+
+`.github/workflows/ci.yml` проверяет pull request и push в `main` на GitHub-hosted Ubuntu, Python 3.11 и Node.js 22. Используется тот же `deploy.sh --check --output DIRECTORY`: backend/deploy/frontend tests, TypeScript/Vite build и runtime archive. Приложение собирается один раз; отдельная job скачивает этот же artifact, подписывает архив Cosign через GitHub OIDC и публикует release `ci-<run_id>-<attempt>-<commit12>`. Ручной запуск Actions из `main` также создаёт выпуск. Ветки и PR не имеют разрешений выпуска или подписи.
+
+Сайт забирает готовый пакет из публичного GitHub Release. Ключи, пароли GitHub, Actions runner внутри LAN и открытие входящих портов не требуются. Подпись проверяется по точному workflow identity `https://github.com/garooduh/pactum/.github/workflows/ci.yml@refs/heads/main` и issuer `https://token.actions.githubusercontent.com`. SHA256SUMS служит дополнительной диагностикой, но не заменяет подпись. Только архив после успешной проверки становится источником remote installer.
+
+### Первоначальная установка updater в контейнере сайта
+
+Выполняется root из проверенной копии исходников:
+
+```bash
+bash scripts/install-cosign.sh
+install -m 755 scripts/pull-deploy.py /usr/local/sbin/pact-pull-deploy
+install -m 644 deploy/pact-update.service deploy/pact-update.timer /etc/systemd/system/
+systemctl daemon-reload
+systemd-analyze verify /etc/systemd/system/pact-update.service /etc/systemd/system/pact-update.timer
+# Первый запуск — после сверки рабочего кода и DOCX с выпускаемыми исходниками.
+systemctl start pact-update.service
+systemctl enable --now pact-update.timer
+```
+
+Cosign v3.1.4 Linux amd64 проверяется по фиксированной SHA256 при установке. Updater и verifier принадлежат root и не обновляются автоматически из runtime release. При изменении этих файлов администратор повторяет установку из проверенных исходников.
+
+Timer проверяет GitHub каждые пять минут с небольшим случайным сдвигом. Новая установка включает существующую транзакцию backup/symlink/rollback. Перед ней проверяется `nginx -t`; health проверяет systemd, локальные API/JS/CSS и внешний HTTPS. Секреты, Nginx, сертификаты, БД и выпущенные документы не входят в release. Схема БД автоматически не мигрируется.
+
+Состояние `/var/lib/pact-deploy/state.json` фиксирует последний установленный tag и commit. Порядок `(run_id, attempt)` запрещает повторную установку и downgrade. Провалившийся tag не запускается повторно каждые пять минут. Остальные новые выпуски могут устанавливаться; после исправления причины разрешён явный повтор:
+
+```bash
+journalctl -u pact-update.service -n 100 --no-pager
+systemctl list-units 'pact-deploy-*' --all
+/usr/local/sbin/pact-pull-deploy --retry
+```
+
+Если изменены DOCX, сначала создайте QA-документы и визуально проверьте их, затем для текущего последнего выпуска:
+
+```bash
+/usr/local/sbin/pact-pull-deploy --retry --templates-reviewed
+```
+
+Флаг не сохраняется для будущих выпусков. Первый выпуск с побайтово идентичными production-шаблонами не требует повторного одобрения шаблонов.
+
+Остановить автоматическую проверку:
+
+```bash
+systemctl disable --now pact-update.timer
+```
+
+Уже начатая установка работает отдельной службой, чтобы потеря SSH или остановка updater не прерывали backup/rollback. Перед ручным вмешательством проверьте `pact-deploy-*`. Для аварийного возврата сначала остановите timer, затем используйте сохранённые release paths и backup по штатному плану; marker не сбрасывается автоматически. Проверки транзакции и updater без обращения к серверу:
+
+```bash
+python3 -m unittest discover -s scripts/tests -p 'test*.py' -v
+```
+
+Настройки репозитория должны разрешать Actions. Разрешения записи выдаются явно только release job. Изменение workflow или кода в `main` даёт возможность обновить production, поэтому доступ записи в `main` следует выдавать только доверенным участникам.

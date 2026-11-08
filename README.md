@@ -1,93 +1,152 @@
 # Пакт
 
-Веб-приложение для подготовки договоров поставки и договоров на изготовление. Пользователь заполняет реквизиты сторон и условия сделки, после чего приложение формирует DOCX и PDF по версионированным шаблонам.
+«Пакт» — однопользовательское веб-приложение для подготовки договоров поставки и договоров на изготовление. Пользователь заполняет реквизиты сторон и условия сделки, а приложение сохраняет черновик и формирует версионированные DOCX и PDF по подготовленным шаблонам.
 
 ## Возможности
 
-- единый профиль исполнителя;
-- заказчики-организации и индивидуальные предприниматели;
-- договор поставки без спецификации;
-- договор на изготовление со спецификацией и расчётом стоимости;
-- автоматическое сохранение черновиков;
-- формирование и хранение версий DOCX и PDF;
-- поиск, копирование и удаление договоров;
-- контроль изменений при работе в нескольких вкладках;
-- повторная конвертация PDF без повторного формирования DOCX.
+- единый подтверждаемый профиль исполнителя-ИП;
+- покупатели/заказчики двух типов: организация и индивидуальный предприниматель;
+- договор поставки с перечнем товаров и расчётом стоимости;
+- договор на изготовление с расширенной спецификацией, описанием и условиями;
+- условия оплаты: 100% предоплата или произвольный текст;
+- автоматическое сохранение черновика с контролем конфликтов по ревизии;
+- поиск по номеру и контрагенту, копирование и удаление договоров;
+- история выпущенных версий, отдельное удаление версии и скачивание DOCX/PDF;
+- повторная конвертация PDF из уже сохранённого DOCX.
 
-Каждая сформированная версия хранит снимок данных договора, реквизиты исполнителя и версию шаблона. Последующие изменения черновика или профиля не изменяют ранее выпущенные документы.
+Каждая выпущенная версия хранит снимок договора и профиля исполнителя, ревизию договора и версию шаблона. Изменение черновика, профиля или шаблона не изменяет уже сформированные файлы.
 
 ## Технологии
 
-- React 19, TypeScript и Vite;
-- FastAPI, SQLAlchemy и Pydantic;
-- PostgreSQL;
-- `python-docx` и версионированные DOCX-шаблоны;
-- LibreOffice для преобразования DOCX в PDF;
-- Caddy и Docker Compose для рабочего развёртывания.
+### Frontend
 
-## Быстрый запуск через Docker Compose
+- React 19 и React DOM;
+- TypeScript 5.8 в strict mode;
+- Vite 6;
+- `decimal.js` для точных денежных расчётов;
+- Lucide React для иконок;
+- Vitest.
 
-Потребуются Docker Engine, Docker Compose v2, домен с настроенной DNS-записью и доступные порты 80 и 443.
+### Backend
 
-1. Создайте файл конфигурации:
+- Python, FastAPI и Uvicorn;
+- Pydantic для DTO и validation;
+- SQLAlchemy 2 и Psycopg 3;
+- Argon2 для хеширования пароля;
+- прямое изменение OOXML через ZIP/XML и `lxml`;
+- LibreOffice Writer (`soffice`) для конвертации DOCX в PDF;
+- pytest и HTTPX для тестов.
 
-   ```sh
-   cp .env.example .env
-   chmod 600 .env
-   ```
+### Данные и инфраструктура
 
-2. Соберите образ и создайте хеш пароля администратора:
+- PostgreSQL в production, SQLite как локальная и тестовая альтернатива;
+- файловое хранилище выпущенных DOCX/PDF;
+- Docker multi-stage build, Docker Compose и Caddy;
+- native deployment на Debian/LXC через systemd и Nginx также хранится в репозитории.
 
-   ```sh
-   docker compose build
-   docker compose run --rm --no-deps api python scripts/password_hash.py
-   ```
+## Структура проекта
 
-3. Укажите в `.env`:
-
-   - `DOMAIN` — домен приложения;
-   - `ACME_EMAIL` — адрес для уведомлений центра сертификации;
-   - `POSTGRES_PASSWORD` — случайный пароль базы данных, например результат `openssl rand -hex 24`;
-   - `ADMIN_USERNAME` — имя пользователя;
-   - `ADMIN_PASSWORD_HASH` — строку, которую вывел скрипт создания пароля.
-
-4. Запустите приложение:
-
-   ```sh
-   docker compose up -d
-   docker compose ps
-   ```
-
-Caddy автоматически получает TLS-сертификат. Проверить приложение можно по адресу `https://<DOMAIN>/api/health`.
-
-Просмотр журналов и остановка:
-
-```sh
-docker compose logs -f api gateway
-docker compose down
+```text
+backend/
+  app/                  FastAPI, Pydantic/SQLAlchemy-модели, генерация документов
+  tests/                pytest API-, validation- и document-тесты
+frontend/
+  src/                  React UI, API client, типы, расчёты и Vitest-тесты
+  public/               статические файлы
+templates/
+  source/               исходные документы, не изменяемые генератором
+  *-v*.docx             рабочие версионированные шаблоны
+  manifest.json         активные файлы, версии и SHA-256 исходников
+scripts/                template QA, password, backup и deployment scripts
+scripts/tests/          тест native deployment transaction
+deploy/                 Caddy, Nginx и systemd-конфигурация
+docs/                   deployment и template-документация
+compose.yaml            PostgreSQL + API + Caddy/static frontend
+Dockerfile              frontend, API и gateway build stages
 ```
 
-Не используйте `docker compose down -v` на рабочем сервере: команда удаляет тома базы данных, документов и сертификатов.
+Подробная карта модулей и потоков данных находится в [ARCHITECTURE.md](ARCHITECTURE.md).
 
-## Локальная разработка
+## Требования
 
-Потребуются Python 3.11+, Node.js 22+, npm и LibreOffice Writer. PostgreSQL рекомендуется для полной совместимости; для локальной разработки и тестов допустим SQLite.
+Для запуска через Compose нужны:
 
-Установите зависимости:
+- Docker Engine и Docker Compose v2;
+- домен с DNS-записью на сервер;
+- доступные извне порты 80 и 443 для Caddy и ACME.
+
+Для локальной разработки нужны:
+
+- Python с модулем `venv` и `pip`;
+- Node.js и npm;
+- LibreOffice Writer/`soffice`, если нужно реально получать PDF;
+- PostgreSQL для production-подобного запуска либо SQLite для локальной работы и тестов.
+
+Репозиторий не задаёт отдельный диапазон версий локальных Python/Node. Dockerfile фиксирует образы Python 3.12 и Node 22; документированная native-установка работает на Python 3.11.
+
+## Установка
+
+Из корня репозитория:
 
 ```sh
 python3 -m venv .venv
-.venv/bin/pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+.venv/bin/pip install -r backend/requirements-dev.txt
 npm --prefix frontend ci
 ```
 
-Создайте хеш локального пароля:
+`backend/requirements-dev.txt` включает production-зависимости из `backend/requirements.txt`. Frontend-зависимости воспроизводимо устанавливаются из `frontend/package-lock.json`.
+
+## Конфигурация
+
+### Compose `.env`
+
+Создайте локальный файл из шаблона и ограничьте права:
+
+```sh
+cp .env.example .env
+chmod 600 .env
+```
+
+| Переменная | Назначение |
+| --- | --- |
+| `DOMAIN` | публичный домен, для которого Caddy получает TLS-сертификат |
+| `ACME_EMAIL` | адрес уведомлений ACME |
+| `POSTGRES_PASSWORD` | пароль роли `pact` в PostgreSQL |
+| `ADMIN_USERNAME` | имя единственного пользователя; Compose по умолчанию использует `admin` |
+| `ADMIN_PASSWORD_HASH` | Argon2-хеш начального пароля |
+
+Хеш содержит `$`, поэтому в `.env` его нужно оставлять в одинарных кавычках, как в `.env.example`. Не коммитьте `.env` и не вставляйте реальные секреты в документацию.
+
+### Переменные API
+
+| Переменная | Назначение | Значение по умолчанию |
+| --- | --- | --- |
+| `DATABASE_URL` | SQLAlchemy URL базы данных | нет; обязательна |
+| `ADMIN_USERNAME` | имя bootstrap-аккаунта | `admin` |
+| `ADMIN_PASSWORD_HASH` | Argon2-хеш при первом создании аккаунта | нет |
+| `APP_ORIGIN` | допустимый origin изменяющих запросов | base URL входящего API-запроса |
+| `COOKIE_SECURE` | выдавать session cookie только по HTTPS | `true` |
+| `DATA_DIR` | каталог выпущенных файлов | `/data` |
+| `TEMPLATES_DIR` | каталог рабочих шаблонов | `templates/` в корне репозитория |
+| `LIBREOFFICE_BIN` | executable LibreOffice CLI | `soffice` |
+
+После bootstrap изменение `ADMIN_PASSWORD_HASH` в окружении не меняет пароль существующего аккаунта. Для Compose пароль меняется интерактивно командой:
+
+```sh
+docker compose exec api python scripts/reset_password.py
+```
+
+Команда также завершает все активные сессии.
+
+## Локальная разработка
+
+Создайте Argon2-хеш пароля длиной не менее 12 символов:
 
 ```sh
 .venv/bin/python scripts/password_hash.py
 ```
 
-Запустите API, подставив полученный Argon2-хеш:
+Запустите API с SQLite, подставив полученный хеш:
 
 ```sh
 DATABASE_URL=sqlite:////tmp/pact-dev.db \
@@ -100,97 +159,167 @@ PYTHONPATH=backend \
 .venv/bin/uvicorn app.main:create_app --factory --reload --host 127.0.0.1 --port 8000
 ```
 
-В отдельном терминале запустите интерфейс:
+В другом терминале запустите frontend:
 
 ```sh
 npm --prefix frontend run dev
 ```
 
-Vite откроет приложение на `http://127.0.0.1:5173` и будет перенаправлять запросы `/api` на порт 8000.
+Vite обслуживает UI на `http://127.0.0.1:5173` и проксирует `/api` на `http://127.0.0.1:8000`. Отдельных frontend environment variables нет: клиент всегда обращается к относительному `/api`.
 
-## Проверки
+## Docker Compose
+
+1. Подготовьте `.env` и задайте случайный `POSTGRES_PASSWORD`.
+2. Соберите образы:
+
+   ```sh
+   docker compose build
+   ```
+
+3. Получите Argon2-хеш и перенесите выведенную строку в `.env`:
+
+   ```sh
+   docker compose run --rm --no-deps api python scripts/password_hash.py
+   ```
+
+4. Запустите stack и проверьте состояние:
+
+   ```sh
+   docker compose up -d
+   docker compose ps
+   docker compose logs --tail=100 api gateway
+   ```
+
+Caddy раздаёт собранный frontend, проксирует `/api/*` в API и автоматически управляет TLS. Health endpoint доступен по `https://<DOMAIN>/api/health`; PostgreSQL наружу не публикуется.
+
+Compose создаёт named volumes:
+
+- `database` — PostgreSQL;
+- `documents` — DOCX/PDF;
+- `certificates` и `caddy_config` — состояние Caddy.
+
+Остановка без удаления данных:
 
 ```sh
-PYTHONPATH=backend .venv/bin/pytest backend/tests -q
-npm --prefix frontend test
+docker compose down
+```
+
+Не используйте `docker compose down -v` на рабочем сервере: команда удалит volumes базы, документов и сертификатов.
+
+## Сборка
+
+Production frontend:
+
+```sh
 npm --prefix frontend run build
+```
+
+Команда сначала выполняет `tsc -b`, затем создаёт `frontend/dist` через Vite. Полная сборка контейнерных stages:
+
+```sh
+docker compose build
+```
+
+## Тесты
+
+Backend API, validation и документы:
+
+```sh
+PYTHONPATH=backend .venv/bin/python -m pytest backend/tests -q
+```
+
+По умолчанию fixtures используют SQLite. Чтобы выполнять их в изолированной PostgreSQL schema, задайте `TEST_DATABASE_URL` с PostgreSQL SQLAlchemy URL; тесты сами создают и удаляют schema.
+
+Frontend:
+
+```sh
+npm --prefix frontend test
+```
+
+Транзакция native deployment с mock-сервисами и временными каталогами:
+
+```sh
 python3 scripts/tests/test_deploy.py
 ```
 
-Полный локальный набор проверок и сборку пакета запускает команда:
+Полный изолированный check, включая установку зависимостей, backend/deploy/frontend tests, frontend build, проверку шаблонов и сборку release archive:
 
 ```sh
 ./scripts/deploy.sh --check
 ```
 
-Для проверки итоговых DOCX и PDF можно создать контрольные документы:
+Этот режим сервер не использует.
+
+Для генерации синтетических контрольных DOCX:
 
 ```sh
 PYTHONPATH=backend .venv/bin/python scripts/qa_documents.py /tmp/pact-qa
 ```
 
-Контрольные документы содержат тестовые данные и не предназначены для подписания.
+Файлы содержат тестовые банковские реквизиты и не предназначены для подписания. PDF для визуальной проверки нужно получить через LibreOffice.
 
-## Конфигурация API
+## Lint и typecheck
 
-| Переменная | Назначение | Обязательность |
-| --- | --- | --- |
-| `DATABASE_URL` | Строка подключения SQLAlchemy | обязательно |
-| `ADMIN_USERNAME` | Имя единственного пользователя | по умолчанию `admin` |
-| `ADMIN_PASSWORD_HASH` | Argon2-хеш пароля | обязательно при первом запуске |
-| `APP_ORIGIN` | Допустимый origin для изменяющих запросов | обязательно в рабочей среде |
-| `COOKIE_SECURE` | Передача cookie только по HTTPS | `true` по умолчанию |
-| `DATA_DIR` | Каталог сформированных документов | `/data` по умолчанию |
-| `TEMPLATES_DIR` | Каталог DOCX-шаблонов | `templates` в репозитории по умолчанию |
-| `LIBREOFFICE_BIN` | Путь к LibreOffice CLI | `soffice` по умолчанию |
-
-После первого запуска изменение `ADMIN_PASSWORD_HASH` в окружении не меняет пароль существующего аккаунта. Для смены пароля и завершения всех активных сеансов выполните:
+Отдельных lint-скриптов и lint-конфигураций в репозитории нет. Prettier установлен как dev dependency, но npm script для него не объявлен. Typecheck является первой частью production build:
 
 ```sh
-docker compose exec api python scripts/reset_password.py
+npm --prefix frontend run build
 ```
+
+Для Python отдельного static typecheck нет.
+
+## Развёртывание
+
+Репозиторий содержит два подтверждённых варианта:
+
+1. `compose.yaml` + `deploy/Caddyfile` — контейнеры PostgreSQL/API/gateway и автоматический TLS.
+2. Native Debian/LXC — PostgreSQL, Uvicorn под `pact.service`, внутренний Nginx и внешний TLS reverse proxy. Текущее состояние этой установки описано в [docs/deployment.md](docs/deployment.md).
+
+Автоматизированное native-обновление выполняет `scripts/deploy.sh`: он локально тестирует и собирает неизменяемый release, передаёт его по SSH, останавливает запись, создаёт backup, переключает symlinks и делает health-check с rollback при ошибке. Полная процедура и требования к ключам находятся в [docs/deploy-script.md](docs/deploy-script.md).
+
+Безопасная локальная проверка:
+
+```sh
+./scripts/deploy.sh --check
+```
+
+Запуск без `--check` изменяет рабочий сервер и должен выполняться только осознанно. Для изменённых DOCX-шаблонов deployment требует предварительной визуальной проверки и флага `--templates-reviewed`. CI/CD-конфигурации в репозитории нет.
 
 ## Данные и резервные копии
 
-При запуске через Docker Compose используются именованные тома:
-
-- `database` — PostgreSQL;
-- `documents` — сформированные DOCX и PDF;
-- `certificates` и `caddy_config` — данные Caddy.
-
-Создание резервной копии:
+Compose backup:
 
 ```sh
 sudo scripts/backup.sh
 ```
 
-Скрипт временно останавливает API и сохраняет согласованную копию базы и файлов с контрольными суммами. Резервные копии содержат персональные данные и должны храниться с ограниченным доступом, в том числе вне основного сервера.
+Скрипт временно останавливает API и сохраняет согласованные database dump, архив документов, template manifest и checksums. Для native-установки предназначены `scripts/backup-native.sh` и systemd timer из `deploy/`.
 
-## Структура репозитория
-
-```text
-backend/app/       API, модели данных и генерация документов
-backend/tests/     серверные тесты
-frontend/src/      React-интерфейс
-templates/         рабочие DOCX-шаблоны и их манифест
-templates/source/  исходные документы
-scripts/           сборка, проверка, обновление и резервное копирование
-deploy/            конфигурация Caddy, Nginx и systemd
-docs/              эксплуатационная и техническая документация
-```
+Резервные копии и сформированные документы содержат персональные данные. Их нужно хранить с ограниченным доступом и выносить за пределы основного сервера по отдельной эксплуатационной процедуре.
 
 ## Ограничения
 
-- один локальный аккаунт без регистрации пользователей;
-- расчёты только в рублях, без отдельного учёта НДС;
-- до 200 позиций в спецификации;
+- один локальный аккаунт без регистрации и ролей;
+- расчёты только в рублях, отдельный учёт НДС отсутствует;
+- не более 200 товарных позиций;
 - количество — до трёх знаков после запятой, цена — до двух;
-- сумма строки округляется до копеек по правилу `HALF_UP`, итог равен сумме округлённых строк;
-- электронная подпись не поддерживается;
-- PDF формируется последовательно одним процессом LibreOffice, тайм-аут операции — 90 секунд.
+- сумма каждой строки округляется до копеек по `HALF_UP`, итог равен сумме округлённых строк;
+- электронная подпись отсутствует;
+- PDF-конвертация сериализована process-local lock и имеет timeout 90 секунд;
+- schema migrations не автоматизированы.
 
 ## Документация
 
-- [Развёртывание и состояние рабочей установки](docs/deployment.md)
-- [Автоматизированное обновление](docs/deploy-script.md)
-- [Устройство и проверка шаблонов](docs/artifact.md)
+- [ARCHITECTURE.md](ARCHITECTURE.md) — текущая архитектура, компоненты и data flows.
+- [AGENTS.md](AGENTS.md) — компактные правила работы AI/Codex-агентов с репозиторием.
+- [docs/deployment.md](docs/deployment.md) — подтверждённое состояние рабочей native-установки.
+- [docs/deploy-script.md](docs/deploy-script.md) — транзакционный deployment и rollback.
+- [docs/artifact.md](docs/artifact.md) — контракт DOCX-шаблонов и их QA.
+
+## GitHub Actions и автоматические обновления
+
+Push в `main` запускает тесты backend/frontend, проверки deployment и production-сборку на GitHub. После успешного CI публикуется подписанный release. Контейнер сайта проверяет новые выпуски каждые пять минут, проверяет подпись workflow из `main` и устанавливает готовый пакет с backup, health checks и откатом. Pull request только проверяется и не публикует выпуск.
+
+GitHub Secrets, self-hosted runner и сборка на рабочем сервере не требуются. Workflow можно также запустить вручную во вкладке Actions из `main`. Изменённые DOCX блокируют автоматическую установку до визуальной проверки администратором.
+
+Настройка, диагностика, остановка автообновлений и повтор после ошибки: [docs/deploy-script.md](docs/deploy-script.md#github-actions).

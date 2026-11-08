@@ -61,6 +61,14 @@ def test_exact_money_and_validation(contract,supplier):
     contract.date='2026-02-30'
     assert 'date' in validate_generation(contract,supplier)
 
+def test_supply_requires_product_positions(contract,supplier):
+    contract.type='simple'
+    assert not validate_generation(contract,supplier)
+    contract.specification.items[0].name=''
+    assert validate_generation(contract,supplier)['specification.items.0.name']=='Заполните поле'
+    contract.specification.items=[]
+    assert validate_generation(contract,supplier)['specification.items']=='Добавьте хотя бы одну позицию'
+
 @pytest.mark.parametrize('kind',['simple','full'])
 @pytest.mark.parametrize('customer_kind',['company','ip'])
 def test_documents_preserve_terms_and_replace_all_slots(tmp_path,contract,supplier,kind,customer_kind):
@@ -72,9 +80,10 @@ def test_documents_preserve_terms_and_replace_all_slots(tmp_path,contract,suppli
     for old in ['УКЦПиМС','Университетский','Богачкин','МЕДИКАЛ','Вардапетян','kosogovstom','190\u00a0000','{{']:
         assert old not in text
     assert contract.number in text and contract.customer.full_name in text and contract.customer.signature in text
+    assert contract.specification.items[0].name in text
+    assert '5\u00a0586,43' in text
     if kind=='full':
         assert text.count(contract.number)==2
-        assert '5\u00a0586,43' in text
         assert 'Zumax' not in text
     original=TEMPLATES/'source'/f'{kind}.docx'
     with ZipFile(original) as z:
