@@ -67,7 +67,7 @@ finish() {
 health() {
   for ((attempt=0; attempt<30; attempt++)); do
     if systemctl is-active --quiet pact && systemctl is-active --quiet nginx && "$base/.venv/bin/python" - <<'PY'
-import json, re, urllib.request
+import http.client, json, re, socket, urllib.request
 base='http://127.0.0.1:8080'
 assert json.load(urllib.request.urlopen(base+'/api/health',timeout=3))['status']=='ok'
 page=urllib.request.urlopen(base+'/',timeout=3).read().decode()
@@ -75,13 +75,31 @@ assets=re.findall(r'(?:src|href)="(/assets/[^" ]+)"',page)
 assert assets, 'Missing frontend assets'
 for asset in assets:
     assert urllib.request.urlopen(base+asset,timeout=3).status==200
-public='https://pactum.qbob.ru'
-assert json.load(urllib.request.urlopen(public+'/api/health',timeout=10))['status']=='ok'
-page=urllib.request.urlopen(public+'/',timeout=10).read().decode()
+# The router does not support NAT loopback. Reach the TLS gateway via its LAN
+# address while retaining the real hostname for SNI, certificate checks and Host.
+class GatewayConnection(http.client.HTTPSConnection):
+    def connect(self):
+        connection=socket.create_connection(('192.168.1.11',443),timeout=self.timeout)
+        try:
+            self.sock=self._context.wrap_socket(connection,server_hostname=self.host)
+        except BaseException:
+            connection.close()
+            raise
+def public_get(path):
+    connection=GatewayConnection('pactum.qbob.ru',timeout=10)
+    try:
+        connection.request('GET',path)
+        response=connection.getresponse()
+        assert response.status==200, f'Gateway returned {response.status}'
+        return response.read()
+    finally:
+        connection.close()
+assert json.loads(public_get('/api/health'))['status']=='ok'
+page=public_get('/').decode()
 assets=re.findall(r'(?:src|href)="(/assets/[^" ]+)"',page)
 assert assets, 'Missing public frontend assets'
 for asset in assets:
-    assert urllib.request.urlopen(public+asset,timeout=10).status==200
+    assert public_get(asset)
 PY
     then return 0; fi
     sleep 2
