@@ -37,6 +37,7 @@ jobs:
           path: ${{ runner.temp }}/package/
           if-no-files-found: error
           retention-days: 14
+          overwrite: true
 
   release:
     if: github.repository == 'garooduh/pactum' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
@@ -62,8 +63,29 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag="ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_SHA:0:12}"
-          gh release create "$tag" package/release.tar.gz package/release.sigstore.json package/remote.sh package/SHA256SUMS \
-            --target "$GITHUB_SHA" --draft --title "Pact ${GITHUB_SHA:0:12}" \
-            --notes "Tested build: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          # A retry of only this job reuses the original build attempt and artifact.
+          tag=$(python3 - <<'PY'
+          import json, os, tarfile
+          with tarfile.open('package/release.tar.gz') as package:
+              build = json.load(package.extractfile('./build.json'))
+          assert build['commit'] == os.environ['GITHUB_SHA']
+          assert str(build['run_id']) == os.environ['GITHUB_RUN_ID']
+          print(f"ci-{build['run_id']}-{build['run_attempt']}-{build['commit'][:12]}")
+          PY
+          )
+          if existing=$(gh release view "$tag" --json isDraft --jq '.isDraft' 2>/dev/null); then
+            if [[ "$existing" == false ]]; then
+              gh release download "$tag" --pattern release.tar.gz --dir "$RUNNER_TEMP/published"
+              cmp package/release.tar.gz "$RUNNER_TEMP/published/release.tar.gz"
+              echo "The identical release is already published."
+              exit 0
+            fi
+          else
+            gh release create "$tag" --target "$GITHUB_SHA" --draft --title "Pact ${GITHUB_SHA:0:12}" \
+              --notes "Tested build: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          fi
+          gh release upload "$tag" package/release.tar.gz package/release.sigstore.json package/remote.sh package/SHA256SUMS --clobber
           gh release edit "$tag" --draft=false --latest
+      - name: Check current public HTTPS
+        continue-on-error: true
+        run: curl --fail --silent --show-error --max-time 20 https://pactum.qbob.ru/api/health
