@@ -3,7 +3,12 @@
 }
 {$DOMAIN} {
     encode zstd gzip
-    request_body {
+    @catalog path /api/furniture/catalog
+    request_body @catalog {
+        max_size 20MB
+    }
+    @other not path /api/furniture/catalog
+    request_body @other {
         max_size 1MB
     }
     header {

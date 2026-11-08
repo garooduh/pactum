@@ -31,8 +31,11 @@ def create_app(database_url=None, data_dir=None, secure_cookie=None):
     @asynccontextmanager
     async def lifespan(app):
         storage.mkdir(parents=True,exist_ok=True)
-        # v1 is the initial schema. Later releases must explicitly migrate before startup.
-        Base.metadata.create_all(engine)
+        # Create the original schema, then explicitly apply additive furniture v2.
+        from .furniture_migration import migrate
+        furniture_tables={'furniture_lists','furniture_catalogs','furniture_issues'}
+        Base.metadata.create_all(engine, tables=[t for t in Base.metadata.sorted_tables if t.name not in furniture_tables])
+        migrate(engine)
         with Session.begin() as db:
             version=db.get(SchemaVersion,1)
             if version is None: db.add(SchemaVersion(id=1))
@@ -65,9 +68,14 @@ def create_app(database_url=None, data_dir=None, secure_cookie=None):
                 return JSONResponse({'detail':'Запрос с другого сайта отклонён'},status_code=403)
             try: length=int(request.headers.get('content-length','0'))
             except ValueError: return JSONResponse({'detail':'Некорректный запрос'},status_code=400)
-            if length>1_000_000: return JSONResponse({'detail':'Слишком большой запрос'},status_code=413)
-            body=await request.body()
-            if len(body)>1_000_000: return JSONResponse({'detail':'Слишком большой запрос'},status_code=413)
+            limit=20*1024*1024 if request.url.path=='/api/furniture/catalog' else 1_000_000
+            if length>limit: return JSONResponse({'detail':'Слишком большой запрос'},status_code=413)
+            chunks=[]; size=0
+            async for chunk in request.stream():
+                size+=len(chunk)
+                if size>limit: return JSONResponse({'detail':'Слишком большой запрос'},status_code=413)
+                chunks.append(chunk)
+            request._body=b''.join(chunks)
         response=await call_next(request)
         response.headers['Cache-Control']='no-store'
         response.headers['X-Content-Type-Options']='nosniff'
@@ -270,6 +278,8 @@ def create_app(database_url=None, data_dir=None, secure_cookie=None):
             number=issue.snapshot['contract']['number']
             safe=''.join(c for c in number if c.isalnum() or c in '-_')[:60] or 'без-номера'
             return FileResponse(path,filename=f'Договор-{safe}.{format}',media_type='application/pdf' if format=='pdf' else 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+    from .furniture import register
+    register(app, Session, storage, authenticated)
     return app
 
 # Factory invocation keeps tests isolated and avoids implicit DB connections on import.

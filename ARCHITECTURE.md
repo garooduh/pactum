@@ -343,3 +343,18 @@ Updater, pinned Cosign и timer устанавливаются отдельно 
 - Backend response shapes и frontend TypeScript interfaces дублируются вручную. OpenAPI отключён, поэтому compile-time/generated contract check отсутствует.
 - `documents.py` напрямую импортирует `lxml`, однако `backend/requirements.txt` не фиксирует его напрямую; сейчас он устанавливается как транзитивная зависимость `python-docx`, который сам в application code не импортируется.
 - `frontend/tsconfig.tsbuildinfo` — generated TypeScript build metadata, но файл отслеживается Git и может давать incidental diffs после build.
+
+### Furniture
+
+`Furniture.tsx` использует отдельные API `/api/furniture/*` и модели
+`FurnitureList`, `FurnitureCatalog`, `FurnitureIssue`. JSON списка содержит
+название, кабинеты и снимки строк. Сохранение использует compare-and-swap revision;
+выпуск POST фиксирует snapshot и request_id. Повтор выпуска возвращает тот же
+выпуск и повторяет неудачную PDF-конвертацию. DOCX создаётся python-docx, PDF —
+существующим LibreOffice converter с общим process-local lock.
+Импорт XLSX выполняется ограниченным OOXML parser без исполнения формул.
+Изображения адресуются SHA-256; новые файлы лежат в DATA_DIR/furniture-images,
+выпуски — DATA_DIR/furniture-<uuid>. Начальные изображения поставляются в backend.
+Обновление каталога не удаляет старые изображения. Все endpoints требуют auth.
+Миграция v2 явно добавляет три таблицы при startup; существующие таблицы и JSON
+договоров не меняются. Старый код может работать с сохранёнными новыми таблицами.

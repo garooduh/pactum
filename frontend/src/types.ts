@@ -143,3 +143,30 @@ export function emptyContract(type: "simple" | "full"): ContractData {
     },
   };
 }
+
+export interface FurnitureItem {
+  article: string;
+  name: string;
+  dimensions: string;
+  room: string;
+  quantity: string;
+  price: string;
+  image: string;
+  catalog_id: string;
+}
+export interface FurnitureList {
+  id: string;
+  revision: number;
+  data: { title: string; rooms: string[]; items: FurnitureItem[] };
+}
+export interface FurnitureCatalog {
+  id: string;
+  items: {
+    article: string;
+    name: string;
+    dimensions: string;
+    section: string;
+    description?: string;
+    image?: string;
+  }[];
+}

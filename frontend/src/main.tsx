@@ -1,3 +1,4 @@
+import { Furniture } from "./Furniture";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -1554,6 +1555,13 @@ function App() {
           <span className="workspace-label">ДОГОВОРЫ</span>
           <nav>
             <button
+              className={view === "furniture" ? "active" : ""}
+              onClick={() => navigate("furniture")}
+            >
+              <FolderOpen size={19} />
+              Списки мебели
+            </button>
+            <button
               className={view === "home" ? "active" : ""}
               onClick={() => navigate("home")}
             >
@@ -1620,6 +1628,7 @@ function App() {
               <b>
                 {
                   {
+                    furniture: "Списки мебели",
                     home: "Обзор",
                     history: "Мои договоры",
                     profile: "Реквизиты исполнителя",
@@ -1876,6 +1885,9 @@ function App() {
                       )}
                     </div>
                   </>
+                )}
+                {view === "furniture" && (
+                  <Furniture beforeLeave={beforeLeave} />
                 )}
                 {view === "profile" && (
                   <ProfileView

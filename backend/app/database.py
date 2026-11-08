@@ -60,3 +60,24 @@ def connect(url=None):
     url = url or os.environ['DATABASE_URL']
     engine = create_engine(url, pool_pre_ping=True, connect_args={'check_same_thread': False} if url.startswith('sqlite') else {})
     return engine, sessionmaker(engine, expire_on_commit=False)
+
+class FurnitureList(Base):
+    __tablename__ = 'furniture_lists'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    data: Mapped[dict] = mapped_column(JSON)
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+
+class FurnitureCatalog(Base):
+    __tablename__ = 'furniture_catalogs'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    data: Mapped[list] = mapped_column(JSON)
+    created_at: Mapped[str] = mapped_column(String(40), default=now, index=True)
+
+class FurnitureIssue(Base):
+    __tablename__ = 'furniture_issues'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    list_id: Mapped[str] = mapped_column(String(36), index=True)
+    request_id: Mapped[str] = mapped_column(String(64), unique=True)
+    revision: Mapped[int] = mapped_column(Integer)
+    snapshot: Mapped[dict] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(String(30))
