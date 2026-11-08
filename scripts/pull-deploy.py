@@ -22,7 +22,8 @@ COSIGN = '/usr/local/bin/cosign'
 
 
 def download(url, target, limit):
-    request = urllib.request.Request(url, headers={'User-Agent': 'pact-deploy', 'Accept': 'application/vnd.github+json'} if url.startswith('https://api.github.com/') else {'User-Agent': 'pact-deploy'})
+    accept = 'application/octet-stream' if '/releases/assets/' in url else 'application/vnd.github+json'
+    request = urllib.request.Request(url, headers={'User-Agent': 'pact-deploy', 'Accept': accept})
     with urllib.request.urlopen(request, timeout=120) as response, target.open('wb') as output:
         total = 0
         while chunk := response.read(1024 * 1024):
@@ -106,11 +107,19 @@ def update(retry=False, templates_reviewed=False):
             print(f'Release {tag} previously failed; use --retry after investigation.', flush=True)
             return
         print(f'Checking release {tag}', flush=True)
-        base = f'https://github.com/{REPOSITORY}/releases/download/{tag}'
+        asset_urls = {}
+        for asset in release['assets']:
+            if asset['name'] in {'release.tar.gz', 'release.sigstore.json'}:
+                if asset['name'] in asset_urls:
+                    raise ValueError('Duplicate release asset')
+                asset_id = asset['id']
+                if not isinstance(asset_id, int) or asset_id <= 0:
+                    raise ValueError('Invalid release asset id')
+                asset_urls[asset['name']] = f'https://api.github.com/repos/{REPOSITORY}/releases/assets/{asset_id}'
         archive = work / 'release.tar.gz'
         bundle = work / 'release.sigstore.json'
-        download(base + '/release.tar.gz', archive, 128 * 1024 * 1024)
-        download(base + '/release.sigstore.json', bundle, 1024 * 1024)
+        download(asset_urls['release.tar.gz'], archive, 128 * 1024 * 1024)
+        download(asset_urls['release.sigstore.json'], bundle, 1024 * 1024)
         verify(archive, bundle)
         metadata, installer = inspect_package(archive, tag)
         with archive.open('rb') as source:

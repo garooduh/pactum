@@ -80,7 +80,10 @@ class UpdateTransaction(unittest.TestCase):
             def download(url, target, limit):
                 downloads.append(url)
                 if target.name == 'latest.json':
-                    target.write_text(json.dumps({'tag_name': TAG, 'draft': False, 'prerelease': False}))
+                    target.write_text(json.dumps({'tag_name': TAG, 'draft': False, 'prerelease': False, 'assets': [
+                        {'name': 'release.tar.gz', 'id': 1},
+                        {'name': 'release.sigstore.json', 'id': 2},
+                    ]}))
                 elif target.name == 'release.tar.gz':
                     make_package(target)
                 else:

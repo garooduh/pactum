@@ -8,10 +8,12 @@ trap 'rm -rf -- "$temporary"' EXIT
 python3 - "$temporary/cosign" <<'PY'
 import hashlib, sys, time, urllib.error, urllib.request
 from pathlib import Path
-url = 'https://github.com/sigstore/cosign/releases/download/v3.1.4/cosign-linux-amd64'
+# Use the official asset API: the browser download URL can have stale CDN redirects.
+url = 'https://api.github.com/repos/sigstore/cosign/releases/assets/660069428'
+request = urllib.request.Request(url, headers={'Accept': 'application/octet-stream', 'User-Agent': 'pact-bootstrap'})
 for attempt in range(4):
     try:
-        with urllib.request.urlopen(url, timeout=120) as response:
+        with urllib.request.urlopen(request, timeout=120) as response:
             data = response.read()
         break
     except (urllib.error.URLError, TimeoutError):
