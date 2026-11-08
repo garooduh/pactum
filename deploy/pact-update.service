@@ -10,4 +10,3 @@ UMask=0077
 Nice=10
 # The detached deployment service owns its backup/rollback transaction.
 TimeoutStartSec=infinity
-
