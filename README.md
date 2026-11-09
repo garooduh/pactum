@@ -119,6 +119,25 @@ npm --prefix frontend run build
 `python3.11 -m venv .venv-test` и установить пакеты через
 `.venv-test/bin/pip install -r backend/requirements-dev.txt`.
 Node.js 22 требуется добавить в PATH перед `npm --prefix frontend ci`.
+
+Зависимости frontend скачиваются через [npm-зеркало GitVerse](https://gitverse.ru/docs/artifactory/registry-mirrors/npm-mirror/):
+`https://npm-mirror.gitverse.ru`. Постоянная настройка хранится в
+`frontend/.npmrc` и применяется при `npm --prefix frontend ci`, проверках
+`deploy.sh --check` (включая CI) и Docker-сборке. Lock-файл сохраняет версии и
+контрольные суммы пакетов. Локальный npm-кэш храните в постоянной игнорируемой
+папке `.tools/npm-cache`:
+
+```sh
+export PATH="$PWD/.tools/node-v22.23.4-linux-x64/bin:$PATH"
+npm --prefix frontend config get registry
+npm --prefix frontend ci --cache "$PWD/.tools/npm-cache" --no-audit --no-fund
+npm --prefix frontend test
+npm --prefix frontend run build
+```
+
+На другой машине используйте установленный Node.js 22; локальный путь к нему
+выше относится к этой рабочей копии. Для разового обхода зеркала можно передать
+`--registry=https://registry.npmjs.org` команде установки.
 Браузерная QA и установка её пакетов описаны ниже. В ограниченном sandbox
 FastAPI TestClient может зависать: эти проверки запускайте с разрешением на
 выполнение вне sandbox.
@@ -394,3 +413,5 @@ PACT_PLAYWRIGHT_MODULE="$PWD/.tools/ui-qa/node_modules/playwright/index.mjs" PLA
 Удалённые номера не используются повторно. В DOCX/PDF эти поля не добавляются.
 Перед первым запуском версии с нумерацией выполните резервное копирование,
 описанное в разделе миграции v3 в docs/deploy-script.md.
+
+После обновления страницы сохраняются раздел, открытый договор и шаг редактора либо открытый список мебели. Положение хранится в пределах вкладки; по умолчанию открываются «Мои договоры».

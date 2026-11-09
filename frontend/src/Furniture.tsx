@@ -1,3 +1,4 @@
+import { readNavigation, writeNavigation } from "./navigation";
 import { furnitureCreatedAt, matchesFurnitureList } from "./furnitureMetadata";
 import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
@@ -297,6 +298,8 @@ export function Furniture({
         api<FurnitureCatalog>("/furniture/catalog"),
       ]);
       setLists(saved);
+      const id = readNavigation().furnitureId;
+      if (id) open(saved.find((x) => x.id === id) || null);
       setCatalog(source);
       setError("");
     } catch (e) {
@@ -358,6 +361,7 @@ export function Furniture({
     };
   }, []);
   function open(x: Saved | null) {
+    writeNavigation({ view: "furniture", furnitureId: x?.id });
     current.current = x;
     setActive(x);
     dirty.current = false;

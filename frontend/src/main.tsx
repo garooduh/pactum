@@ -1,3 +1,4 @@
+import { readNavigation, writeNavigation } from "./navigation";
 import { Furniture } from "./Furniture";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -628,12 +629,16 @@ function Editor({
   beforeLeave: React.RefObject<(() => Promise<void>) | null>;
 }) {
   const [data, setData] = useState(initial.data),
-    [step, setStep] = useState(0),
+    [step, updateStep] = useState(() => readNavigation().step || 0),
     [issues, setIssues] = useState(initial.issues),
     [saving, setSaving] = useState("saved"),
     [error, setError] = useState(""),
     [errors, setErrors] = useState<Record<string, string>>({}),
     [generating, setGenerating] = useState(false);
+  function setStep(next: number) {
+    updateStep(next);
+    writeNavigation({ view: "editor", contractId: initial.id, step: next });
+  }
   const live = useRef(data);
   live.current = data;
   const revision = useRef(initial.revision),
@@ -1399,7 +1404,7 @@ function Editor({
 function App() {
   const [auth, setAuth] = useState<boolean | null>(null),
     [booted, setBooted] = useState(false),
-    [view, setView] = useState("home"),
+    [view, setView] = useState<string>(() => readNavigation().view),
     [profile, setProfile] = useState<Profile | null>(null),
     [notes, setNotes] = useState<SourceNote[]>([]),
     [contracts, setContracts] = useState<Contract[]>([]),
@@ -1427,6 +1432,16 @@ function App() {
     setProfile(result.profile);
     setNotes(result.source_notes);
     await loadList();
+    const navigation = readNavigation();
+    if (navigation.view === "editor" && navigation.contractId) {
+      try {
+        setActive(await api<Contract>("/contracts/" + navigation.contractId));
+      } catch (e) {
+        if ((e as ApiError).status !== 404) throw e;
+        setView("history");
+        writeNavigation({ view: "history" });
+      }
+    }
     setBooted(true);
   }, [loadList]);
   useEffect(() => {
@@ -1470,6 +1485,7 @@ function App() {
     void action(async () => {
       await beforeLeave.current?.();
       setView(next);
+      writeNavigation({ view: next as "history" | "profile" | "furniture" });
       setMobile(false);
       if (next === "home" || next === "history") {
         setQuery("");
@@ -1484,13 +1500,16 @@ function App() {
       const c = await api<Contract>("/contracts", "POST", emptyContract(type));
       setActive(c);
       setView("editor");
+      writeNavigation({ view: "editor", contractId: c.id, step: 0 });
       setMobile(false);
     });
   }
   function open(id: string) {
     void action(async () => {
       await beforeLeave.current?.();
-      setActive(await api<Contract>("/contracts/" + id));
+      const c = await api<Contract>("/contracts/" + id);
+      setActive(c);
+      writeNavigation({ view: "editor", contractId: c.id, step: 0 });
       setView("editor");
       window.scrollTo(0, 0);
     });
@@ -1510,7 +1529,9 @@ function App() {
   function copy(id: string) {
     void action(async () => {
       await beforeLeave.current?.();
-      setActive(await api<Contract>(`/contracts/${id}/copy`, "POST"));
+      const c = await api<Contract>(`/contracts/${id}/copy`, "POST");
+      setActive(c);
+      writeNavigation({ view: "editor", contractId: c.id, step: 0 });
       setView("editor");
       window.scrollTo(0, 0);
     });
@@ -1550,7 +1571,7 @@ function App() {
           <div className="nav-scrim" onClick={() => setMobile(false)} />
         )}
         <aside className={"sidebar " + (mobile ? "open" : "")}>
-          <button className="brand" onClick={() => navigate("home")}>
+          <button className="brand" onClick={() => navigate("history")}>
             <span className="brand-symbol" aria-hidden="true">
               P
             </span>
@@ -1602,7 +1623,8 @@ function App() {
                   setBooted(false);
                   setAuth(false);
                   setActive(null);
-                  setView("home");
+                  setView("history");
+                  writeNavigation({ view: "history" });
                 })
               }
             >
@@ -1627,7 +1649,6 @@ function App() {
                 {
                   {
                     furniture: "Списки мебели",
-                    home: "Обзор",
                     history: "Мои договоры",
                     profile: "Реквизиты исполнителя",
                     editor: "Новый договор",
@@ -1642,7 +1663,7 @@ function App() {
           </header>
           <div className="page">
             <ErrorBox message={error} />
-            {!profile ? (
+            {!profile || !booted ? (
               <div className="loading">
                 <LoaderCircle className="spin" />
                 Загружаем реквизиты…
@@ -1652,24 +1673,18 @@ function App() {
               </div>
             ) : (
               <>
-                {(view === "home" || view === "history") && (
+                {(view === "history") && (
                   <>
                     <div className="page-heading">
                       <div>
                         <span className="eyebrow">
-                          {view === "home"
-                            ? "РАБОЧЕЕ ПРОСТРАНСТВО"
-                            : "РЕЕСТР ДОГОВОРОВ"}
+                          {"РЕЕСТР ДОГОВОРОВ"}
                         </span>
                         <h1>
-                          {view === "home"
-                            ? "Создание договоров"
-                            : "Мои договоры"}
+                          {"Мои договоры"}
                         </h1>
                         <p>
-                          {view === "home"
-                            ? "Выберите тип документа."
-                            : "Черновики и сформированные документы."}
+                          {"Черновики и сформированные документы."}
                         </p>
                       </div>
                       <span className="today">
@@ -1753,9 +1768,7 @@ function App() {
                     <div className="list-heading">
                       <div>
                         <h2>
-                          {view === "home"
-                            ? "Последние договоры"
-                            : "Все договоры"}
+                          {"Все договоры"}
                         </h2>
                         <span>
                           {contracts.length

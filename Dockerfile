@@ -1,6 +1,6 @@
 FROM node:22-bookworm-slim AS web
 WORKDIR /web
-COPY frontend/package*.json ./
+COPY frontend/package*.json frontend/.npmrc ./
 RUN npm ci
 COPY frontend/ ./
 RUN npm run build
