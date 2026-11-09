@@ -63,9 +63,16 @@ def connect(url=None):
 
 class FurnitureList(Base):
     __tablename__ = 'furniture_lists'
+    number: Mapped[int | None] = mapped_column(Integer, unique=True)
+    created_at: Mapped[str | None] = mapped_column(String(40))
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     data: Mapped[dict] = mapped_column(JSON)
     revision: Mapped[int] = mapped_column(Integer, default=0)
+
+class FurnitureCounter(Base):
+    __tablename__ = 'furniture_counter'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    value: Mapped[int] = mapped_column(Integer)
 
 class FurnitureCatalog(Base):
     __tablename__ = 'furniture_catalogs'

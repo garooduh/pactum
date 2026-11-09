@@ -85,3 +85,47 @@ def test_migration_repeat_and_auth(client):
     assert client.get('/api/furniture/lists').status_code==401
     assert client.get('/api/furniture/catalog').status_code==401
     assert client.post('/api/furniture/catalog',content=make_xlsx()).status_code==401
+
+
+def test_list_metadata_and_parallel_numbers(logged):
+    from concurrent.futures import ThreadPoolExecutor
+    from datetime import datetime
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        lists = list(pool.map(lambda _: logged.post('/api/furniture/lists').json(), range(8)))
+    assert sorted(x['number'] for x in lists) == list(range(1, 9))
+    for x in lists:
+        assert datetime.fromisoformat(x['created_at']).utcoffset().total_seconds() == 0
+        url = '/api/furniture/lists/' + x['id']
+        saved = logged.put(url, json={'revision': 0, 'data': {**x['data'], 'title': 'Переименован'}}).json()
+        assert (saved['number'], saved['created_at']) == (x['number'], x['created_at'])
+        assert logged.put(url, json={'revision': 1, 'data': x['data'], 'number': 42}).status_code == 422
+    ordered = logged.get('/api/furniture/lists').json()
+    assert [x['number'] for x in ordered] == list(range(8, 0, -1))
+    assert logged.delete('/api/furniture/lists/' + ordered[0]['id']).status_code == 200
+    assert logged.post('/api/furniture/lists').json()['number'] == 9
+
+
+def test_v3_old_schema(client):
+    # Also runs against isolated PostgreSQL when TEST_DATABASE_URL is set.
+    import json
+    from sqlalchemy import text, select
+    from app.database import FurnitureList, FurnitureCounter, SchemaVersion
+    from app.furniture_migration import migrate
+    engine = client.app.state.Session.kw['bind']
+    with engine.begin() as db:
+        FurnitureList.__table__.drop(db)
+        FurnitureCounter.__table__.drop(db)
+        db.execute(SchemaVersion.__table__.delete().where(SchemaVersion.id == 3))
+        db.execute(text('CREATE TABLE furniture_lists (id VARCHAR(36) PRIMARY KEY, data JSON NOT NULL, revision INTEGER NOT NULL)'))
+        for id, title in [('c', 'Я'), ('b', 'Ёж'), ('a', 'еж')]:
+            db.execute(text('INSERT INTO furniture_lists (id, data, revision) VALUES (:id, :data, 7)'),
+                       {'id': id, 'data': json.dumps({'title': title, 'rooms': [], 'items': []})})
+    migrate(engine)
+    migrate(engine)
+    with engine.connect() as db:
+        rows = db.execute(select(FurnitureList.__table__).order_by(FurnitureList.number)).mappings().all()
+        assert [r['id'] for r in rows] == ['a', 'b', 'c']
+        assert [r['number'] for r in rows] == [1, 2, 3]
+        assert [r['data']['title'] for r in rows] == ['еж', 'Ёж', 'Я']
+        assert all(r['created_at'] is None and r['revision'] == 7 for r in rows)
+        assert db.execute(select(FurnitureCounter.value)).scalar_one() == 3

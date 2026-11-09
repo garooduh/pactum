@@ -8,9 +8,9 @@ from threading import Lock
 import json
 import re
 from pydantic import Field, model_validator
-from sqlalchemy import select
+from sqlalchemy import select, update
 from docx import Document
-from .database import FurnitureList, FurnitureCatalog, FurnitureIssue
+from .database import FurnitureList, FurnitureCatalog, FurnitureIssue, FurnitureCounter, now
 from .schemas import Model, numeric
 from .documents import convert_pdf
 
@@ -52,25 +52,28 @@ class Save(Model):
     revision: int
     data: ListData
 
+def list_response(x):
+    return dict(id=x.id, revision=x.revision, data=x.data, number=x.number, created_at=x.created_at)
+
 def register(app, Session, storage, authenticated):
     @app.get('/api/furniture/lists', dependencies=[Depends(authenticated)])
     def lists():
         with Session() as db:
-            return [dict(id=x.id, revision=x.revision, data=x.data) for x in db.scalars(select(FurnitureList))]
+            return [list_response(x) for x in db.scalars(select(FurnitureList).order_by(FurnitureList.number.desc()))]
 
     @app.post('/api/furniture/lists', dependencies=[Depends(authenticated)])
     def create():
         with Session.begin() as db:
-            x=FurnitureList(id=str(uuid4()), data=ListData().model_dump(), revision=0); db.add(x)
-            return dict(id=x.id, revision=0, data=x.data)
+            number=db.execute(update(FurnitureCounter).where(FurnitureCounter.id==1).values(value=FurnitureCounter.value+1).returning(FurnitureCounter.value)).scalar_one()
+            x=FurnitureList(id=str(uuid4()), data=ListData().model_dump(), revision=0, number=number, created_at=now()); db.add(x)
+            return list_response(x)
 
     @app.put('/api/furniture/lists/{id}', dependencies=[Depends(authenticated)])
     def save(id: str, payload: Save):
-        from sqlalchemy import update
         with Session.begin() as db:
             result=db.execute(update(FurnitureList).where(FurnitureList.id==id, FurnitureList.revision==payload.revision).values(data=payload.data.model_dump(), revision=payload.revision+1))
             if result.rowcount!=1: raise HTTPException(409, 'Список изменён. Откройте его заново.')
-        return dict(id=id, revision=payload.revision+1, data=payload.data.model_dump())
+            return list_response(db.get(FurnitureList, id))
 
     @app.delete('/api/furniture/lists/{id}', dependencies=[Depends(authenticated)])
     def remove(id: str):

@@ -96,6 +96,34 @@ npm --prefix frontend ci
 
 `backend/requirements-dev.txt` включает production-зависимости из `backend/requirements.txt`. Frontend-зависимости воспроизводимо устанавливаются из `frontend/package-lock.json`.
 
+На этой рабочей машине тестовое окружение установлено постоянно в каталоге
+проекта: Python 3.11 — `.tools/python`, backend-пакеты — `.venv-test`,
+Node.js 22 — `.tools/node-v22.23.4-linux-x64`, frontend-пакеты —
+`frontend/node_modules`. Playwright находится в `.tools/ui-qa`, его Chromium —
+в `.tools/playwright-browsers`. Каталоги исключены из Git; повторная установка
+перед каждым запуском не нужна. Исходное окружение `.venv` сохранено.
+
+Запуск установленных проверок из корня проекта:
+
+```sh
+export PATH="$PWD/.tools/node-v22.23.4-linux-x64/bin:$PATH"
+PYTHONPATH=backend .venv-test/bin/python -m pytest backend/tests -q
+.venv-test/bin/python -m unittest discover -s scripts/tests -p 'test*.py' -v
+npm --prefix frontend test
+npm --prefix frontend run build
+```
+
+Для обновления backend-пакетов используйте
+`.venv/bin/uv pip install --python .venv-test/bin/python -r backend/requirements-dev.txt`.
+На другой машине с Python 3.11 окружение можно создать через
+`python3.11 -m venv .venv-test` и установить пакеты через
+`.venv-test/bin/pip install -r backend/requirements-dev.txt`.
+Node.js 22 требуется добавить в PATH перед `npm --prefix frontend ci`.
+Браузерная QA и установка её пакетов описаны ниже. В ограниченном sandbox
+FastAPI TestClient может зависать: эти проверки запускайте с разрешением на
+выполнение вне sandbox.
+
+
 ## Конфигурация
 
 ### Compose `.env`
@@ -347,9 +375,9 @@ DOCX/PDF содержат общий перечень без кабинетов 
 Запустите Vite через `npm --prefix frontend run dev` и в другом терминале:
 
 ```sh
-npm install --prefix /tmp/pact-ui-qa playwright
-PLAYWRIGHT_BROWSERS_PATH=/tmp/pact-playwright /tmp/pact-ui-qa/node_modules/.bin/playwright install chromium
-PACT_PLAYWRIGHT_MODULE=/tmp/pact-ui-qa/node_modules/playwright/index.mjs PLAYWRIGHT_BROWSERS_PATH=/tmp/pact-playwright node scripts/qa_furniture_ui.mjs
+npm install --prefix .tools/ui-qa --save-exact playwright@1.58.2
+PLAYWRIGHT_BROWSERS_PATH="$PWD/.tools/playwright-browsers" .tools/ui-qa/node_modules/.bin/playwright install chromium
+PACT_PLAYWRIGHT_MODULE="$PWD/.tools/ui-qa/node_modules/playwright/index.mjs" PLAYWRIGHT_BROWSERS_PATH="$PWD/.tools/playwright-browsers" node scripts/qa_furniture_ui.mjs
 ```
 
 Скрипт проверяет редактор на 1440, 1024 и 390 px, диалоги и фокус, добавление,
@@ -358,3 +386,11 @@ PACT_PLAYWRIGHT_MODULE=/tmp/pact-ui-qa/node_modules/playwright/index.mjs PLAYWRI
 `/tmp/pact-furniture-ui`. Адрес локального Vite можно изменить через `PACT_UI_URL`,
 каталог снимков — через `PACT_UI_OUTPUT`. Playwright устанавливается отдельно,
 зависимости production не меняются.
+
+Каждый список мебели получает постоянный серверный номер и дату создания.
+В перечне новые номера идут первыми; поиск работает по названию и номеру,
+в том числе «№12». Дата отображается по Москве. У старых списков дата неизвестна;
+номера назначаются по названию без учёта регистра (Ё = Е), затем UUID.
+Удалённые номера не используются повторно. В DOCX/PDF эти поля не добавляются.
+Перед первым запуском версии с нумерацией выполните резервное копирование,
+описанное в разделе миграции v3 в docs/deploy-script.md.

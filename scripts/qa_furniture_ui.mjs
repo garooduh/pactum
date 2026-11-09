@@ -106,6 +106,8 @@ try {
         const x = {
           id: "list-" + (lists.length + 1),
           revision: 0,
+          number: lists.length + 1,
+          created_at: "2026-11-08T22:30:00+00:00",
           data: { title: "Список мебели", rooms: [], items: [] },
         };
         lists.push(x);
@@ -141,6 +143,7 @@ try {
       saves.push(data);
       revision++;
       lists[index] = {
+        ...lists[index],
         id,
         revision: lists[index].revision + 1,
         data: data.data,
@@ -199,6 +202,7 @@ try {
   await page
     .getByRole("button", { name: "Создать список мебели", exact: true })
     .click();
+  await page.getByText("Список №1 · Создан 09.11.2026", { exact: true }).waitFor();
   await page
     .getByLabel("Название списка", { exact: true })
     .fill("Мебель для клиники «Север»");
@@ -454,6 +458,12 @@ try {
   );
   await page.getByRole("button", { name: "Все списки", exact: true }).click();
   await shot("07-saved-index");
+  await page.locator(".fur-project").getByText("Создан 09.11.2026", { exact: true }).waitFor();
+  await page.getByLabel("Найти список").fill("№1");
+  assert.equal(await page.locator(".fur-project").count(), 1);
+  await page.getByLabel("Найти список").fill("№999");
+  await page.getByText("Списки не найдены", { exact: true }).waitFor();
+  await page.getByLabel("Найти список").fill("");
   await page.locator(".fur-project").first().click();
   await page.getByLabel("Действия со списком", { exact: true }).click();
   await page

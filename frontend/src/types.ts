@@ -155,6 +155,8 @@ export interface FurnitureItem {
   catalog_id: string;
 }
 export interface FurnitureList {
+  number: number;
+  created_at: string | null;
   id: string;
   revision: number;
   data: { title: string; rooms: string[]; items: FurnitureItem[] };

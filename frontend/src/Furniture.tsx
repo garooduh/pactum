@@ -1,3 +1,4 @@
+import { furnitureCreatedAt, matchesFurnitureList } from "./furnitureMetadata";
 import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
 import {
@@ -705,7 +706,7 @@ export function Furniture({
                   <Search size={18} />
                   <input
                     aria-label="Найти список"
-                    placeholder="Найти список по названию"
+                    placeholder="Найти список по названию или номеру"
                     value={listQuery}
                     onChange={(e) => setListQuery(e.target.value)}
                   />
@@ -725,14 +726,8 @@ export function Furniture({
               </div>
               <div className="fur-projects">
                 {lists
-                  .filter((x) =>
-                    x.data.title
-                      .toLocaleLowerCase()
-                      .includes(listQuery.toLocaleLowerCase()),
-                  )
-                  .sort((a, b) =>
-                    a.data.title.localeCompare(b.data.title, "ru"),
-                  )
+                  .filter((x) => matchesFurnitureList(x, listQuery))
+                  .sort((a, b) => b.number - a.number)
                   .map((x) => {
                     const sum = summary(x.data.items);
                     return (
@@ -746,7 +741,8 @@ export function Furniture({
                           <FileText size={23} />
                         </span>
                         <span className="fur-project-info">
-                          <strong>{x.data.title || "Без названия"}</strong>
+                          <strong>№{x.number} · {x.data.title || "Без названия"}</strong>
+                          <span>{furnitureCreatedAt(x.created_at)}</span>
                           <span>
                             {x.data.items.length} позиций ·{" "}
                             {x.data.rooms.length} кабинетов
@@ -763,11 +759,7 @@ export function Furniture({
                     );
                   })}
               </div>
-              {!lists.some((x) =>
-                x.data.title
-                  .toLocaleLowerCase()
-                  .includes(listQuery.toLocaleLowerCase()),
-              ) && (
+              {!lists.some((x) => matchesFurnitureList(x, listQuery)) && (
                 <div className="fur-empty">
                   <Search size={26} />
                   <h2>Списки не найдены</h2>
@@ -794,6 +786,7 @@ export function Furniture({
           </button>
           <header className="fur-editor-header">
             <div className="fur-title">
+              <span className="fur-muted">Список №{active.number} · {furnitureCreatedAt(active.created_at)}</span>
               <label htmlFor="fur-title">Название списка</label>
               <input
                 id="fur-title"

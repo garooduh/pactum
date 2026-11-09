@@ -31,9 +31,9 @@ def create_app(database_url=None, data_dir=None, secure_cookie=None):
     @asynccontextmanager
     async def lifespan(app):
         storage.mkdir(parents=True,exist_ok=True)
-        # Create the original schema, then explicitly apply additive furniture v2.
+        # Create the original schema, then explicitly apply additive furniture v2/v3.
         from .furniture_migration import migrate
-        furniture_tables={'furniture_lists','furniture_catalogs','furniture_issues'}
+        furniture_tables={'furniture_lists','furniture_catalogs','furniture_issues','furniture_counter'}
         Base.metadata.create_all(engine, tables=[t for t in Base.metadata.sorted_tables if t.name not in furniture_tables])
         migrate(engine)
         with Session.begin() as db:
