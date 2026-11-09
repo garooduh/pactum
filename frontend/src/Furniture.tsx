@@ -727,7 +727,7 @@ export function Furniture({
               <div className="fur-projects">
                 {lists
                   .filter((x) => matchesFurnitureList(x, listQuery))
-                  .sort((a, b) => b.number - a.number)
+                  .sort((a, b) => a.number - b.number)
                   .map((x) => {
                     const sum = summary(x.data.items);
                     return (

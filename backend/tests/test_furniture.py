@@ -100,8 +100,8 @@ def test_list_metadata_and_parallel_numbers(logged):
         assert (saved['number'], saved['created_at']) == (x['number'], x['created_at'])
         assert logged.put(url, json={'revision': 1, 'data': x['data'], 'number': 42}).status_code == 422
     ordered = logged.get('/api/furniture/lists').json()
-    assert [x['number'] for x in ordered] == list(range(8, 0, -1))
-    assert logged.delete('/api/furniture/lists/' + ordered[0]['id']).status_code == 200
+    assert [x['number'] for x in ordered] == list(range(1, 9))
+    assert logged.delete('/api/furniture/lists/' + ordered[-1]['id']).status_code == 200
     assert logged.post('/api/furniture/lists').json()['number'] == 9
 
 

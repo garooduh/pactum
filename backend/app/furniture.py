@@ -59,7 +59,7 @@ def register(app, Session, storage, authenticated):
     @app.get('/api/furniture/lists', dependencies=[Depends(authenticated)])
     def lists():
         with Session() as db:
-            return [list_response(x) for x in db.scalars(select(FurnitureList).order_by(FurnitureList.number.desc()))]
+            return [list_response(x) for x in db.scalars(select(FurnitureList).order_by(FurnitureList.number.asc()))]
 
     @app.post('/api/furniture/lists', dependencies=[Depends(authenticated)])
     def create():
